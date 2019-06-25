@@ -1,0 +1,15 @@
+{
+  "name": "apostrophe-3-upgrade-tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "escodegen": "^1.11.1",
+    "esprima": "^4.0.1"
+  }
+}
