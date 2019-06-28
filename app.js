@@ -10,7 +10,7 @@ let earlyInits = [];
 let lateInits = [];
 let adjusts = [];
 const options = [];
-
+const apiRoutes = {};
 const specials = {
   'extend': true,
   'improve': true,
@@ -93,7 +93,27 @@ if (Object.keys(options).length) {
   });
 }
 
-const inits = earlyInits.concat(lateInits);
+let inits = earlyInits.concat(lateInits);
+
+inits = inits.filter(function(init) {
+  if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.type') === 'MemberExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'apiRoute')) {
+    const args = get(init, 'expression.arguments');
+    if (!args) {
+      return true;
+    }
+    const method = get(args[0], 'value');
+    const name = camelName(get(args[1], 'value'));
+    if (!(method && name)) {
+      return true;
+    }
+    let fns = args.slice(2);
+    apiRoutes[method] = apiRoutes[method] || {};
+    apiRoutes[method][name] = fns;  
+    return false;
+  } else {
+    return true;
+  }
+});
 
 if (adjusts.length) {
   moduleBody.properties.push({
@@ -152,6 +172,62 @@ if (inits.length) {
   });
 }
 
+if (Object.keys(apiRoutes).length) {
+  moduleBody.properties.push({
+    type: 'Property',
+    key: {
+      type: 'Identifier',
+      name: 'apiRoutes'
+    },
+    value: {
+      type: 'FunctionExpression',
+      "params": [
+        {
+          "type": "Identifier",
+          "name": "self"
+        },
+        {
+          "type": "Identifier",
+          "name": "options"
+        }
+      ],
+      body: {
+        type: 'BlockStatement',
+        body: [
+          {
+            type: 'ReturnStatement',
+            argument: {
+              type: 'ObjectExpression',
+              properties: Object.keys(apiRoutes).map(httpMethod => {
+                return {
+                  type: 'Property',
+                  key: {
+                    type: 'Identifier',
+                    name: httpMethod
+                  },
+                  value: {
+                    type: 'ObjectExpression',
+                    properties: Object.keys(apiRoutes[httpMethod]).map(name => ({
+                      type: 'Property',
+                      key: {
+                        type: 'Identifier',
+                        name: name
+                      },
+                      value: middlewareAndRouteFunction(apiRoutes[httpMethod][name]),
+                      method: true
+                    }))
+                  }
+                };
+              })
+            }
+          }
+        ]
+      }
+    },
+    method: true
+  });
+}
+
 if (methods.length) {
   moduleBody.properties.push({
     type: 'Property',
@@ -198,6 +274,40 @@ if (methods.length) {
   });
 }
 
+const required = {};
+
+parsed.body = parsed.body.filter(expression => {
+  if (expression.type !== 'VariableDeclaration') {
+    return true;
+  }
+  const declaration = expression && expression.declarations && expression.declarations[0];
+  if (!declaration) {
+    return true;
+  }
+  if (declaration.type !== 'VariableDeclarator') {
+    return true;
+  }
+  if (get(declaration, 'init.type') !== 'CallExpression') {
+    return true;
+  }
+  if (get(declaration, 'init.callee.name') !== 'require') {
+    return true;
+  }
+  const varName = get(declaration, 'id.name');
+  const args = get(declaration, 'init.arguments');
+  const arg = args && (args.length === 1) && args[0];
+  if (!arg) {
+    return true;
+  }
+
+  if (required[varName]) {
+    // Duplicate stomped
+    return false;
+  }
+  required[varName] = true;
+  return true;
+});
+
 console.log(escodegen.generate(parsed));
 
 function parseConstruct(body) {
@@ -218,8 +328,11 @@ function parseConstruct(body) {
         if ((arguments.length === 2) && (arguments[0].name === 'self') && (arguments[1].name === 'options')) {
           const path = get(statement, 'expression.callee.arguments.0.value');
           // recurse into path
-          console.log(require('path').resolve(moduleName, path));
-          const code = require('fs').readFileSync(require('path').resolve(moduleName, path), 'utf8');
+          let fsPath = require('path').resolve(require('path').dirname(moduleName), path);
+          if (!fsPath.match(/\.js$/)) {
+            fsPath += '.js';
+          }
+          const code = require('fs').readFileSync(fsPath, 'utf8');
           const parsed = esprima.parseScript(code);
           parsed.body.forEach(statement => {
             if (
@@ -230,8 +343,9 @@ function parseConstruct(body) {
               if (get(right, 'type') !== 'FunctionExpression') {
                 return null;
               }
-              console.log('* * *');
-              console.log(right);
+              if (right.body && right.body.body) {
+                parseConstruct(right.body.body);
+              }
             } else {
               prologue.push(statement);
             }
@@ -265,3 +379,41 @@ function get(o, s) {
   });
   return o;
 };
+
+function middlewareAndRouteFunction(fns) {
+  if (fns.length === 1) {
+    return fns[0];  
+  } else {
+    return {
+      type: 'ArrayExpression',
+      elements: fns
+    };
+  }
+}
+
+function camelName(s) {
+  // Keep in sync with client side version
+  let i;
+  let n = '';
+  let nextUp = false;
+  for (i = 0; (i < s.length); i++) {
+    let c = s.charAt(i);
+    // If the next character is already uppercase, preserve that, unless
+    // it is the first character
+    if ((i > 0) && c.match(/[A-Z]/)) {
+      nextUp = true;
+    }
+    if (c.match(/[A-Za-z0-9]/)) {
+      if (nextUp) {
+        n += c.toUpperCase();
+        nextUp = false;
+      } else {
+        n += c.toLowerCase();
+      }
+    } else {
+      nextUp = true;
+    }
+  }
+  return n;
+};
+
