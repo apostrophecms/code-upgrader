@@ -2,15 +2,16 @@ const moduleName = process.argv[2];
 const code = require('fs').readFileSync(moduleName, 'utf8');
 const esprima = require('esprima');
 const escodegen = require('escodegen');
-const parsed = esprima.parseScript(code);
+const parsed = esprima.parseScript(code, { comment: true, loc: true });
 
 const prologue = [];
-const methods = [];
+let methods = [];
 let earlyInits = [];
 let lateInits = [];
 let adjusts = [];
 const options = [];
-const apiRoutes = {};
+const routes = {};
+const superCaptures = {};
 const specials = {
   'extend': true,
   'improve': true,
@@ -20,6 +21,7 @@ const specials = {
 const specialsFound = {};
 
 let moduleBody;
+const handlers = {};
 
 parsed.body.forEach(statement => {
   if (
@@ -96,19 +98,27 @@ if (Object.keys(options).length) {
 let inits = earlyInits.concat(lateInits);
 
 inits = inits.filter(function(init) {
-  if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.type') === 'MemberExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'apiRoute')) {
-    const args = get(init, 'expression.arguments');
-    if (!args) {
+  if (route('apiRoute', init)) {
+    return false;
+  } else if (route('renderRoute', init)) {
+    return false;
+  } else if (route('htmlRoute', init)) {
+    return false;
+  } else if (route('route', init)) {
+    return false;
+  } else if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'on')) {
+    const arguments = get(init, 'expression.arguments');
+    if ((arguments[0].type !== 'Literal') || (arguments[1].type !== 'Literal') || (arguments[2].type !== 'FunctionExpression')) {
       return true;
     }
-    const method = get(args[0], 'value');
-    const name = camelName(get(args[1], 'value'));
-    if (!(method && name)) {
-      return true;
-    }
-    let fns = args.slice(2);
-    apiRoutes[method] = apiRoutes[method] || {};
-    apiRoutes[method][name] = fns;  
+    const fullEventName = arguments[0].value;
+    const handlerName = arguments[1].value;
+    const handler = arguments[2];
+    handler.comments = getCommentsBefore(handler);
+    handlers[fullEventName] = handlers[fullEventName] || {};
+    handlers[fullEventName][handlerName] = handler;
+  } else if ((get(init, 'type') === 'VariableDeclaration') && (get(init, 'declarations.0.id.name').match(/^super/))) {
+    superCaptures[get(init, 'declarations.0.init.property.name')] = get(init, 'declarations.0.id.name');
     return false;
   } else {
     return true;
@@ -172,12 +182,12 @@ if (inits.length) {
   });
 }
 
-if (Object.keys(apiRoutes).length) {
+Object.keys(routes).forEach(type => {
   moduleBody.properties.push({
     type: 'Property',
     key: {
       type: 'Identifier',
-      name: 'apiRoutes'
+      name: type + 's'
     },
     value: {
       type: 'FunctionExpression',
@@ -198,7 +208,7 @@ if (Object.keys(apiRoutes).length) {
             type: 'ReturnStatement',
             argument: {
               type: 'ObjectExpression',
-              properties: Object.keys(apiRoutes).map(httpMethod => {
+              properties: Object.keys(routes[type]).map(httpMethod => {
                 return {
                   type: 'Property',
                   key: {
@@ -207,13 +217,74 @@ if (Object.keys(apiRoutes).length) {
                   },
                   value: {
                     type: 'ObjectExpression',
-                    properties: Object.keys(apiRoutes[httpMethod]).map(name => ({
+                    properties: Object.keys(routes[type][httpMethod]).map(name => {
+                      const fns = routes[type][httpMethod][name];
+                      return {
+                        type: 'Property',
+                        key: {
+                          type: 'Identifier',
+                          name: name
+                        },
+                        leadingComments: fns[0].comments,
+                        value: middlewareAndRouteFunction(fns),
+                        method: (fns.length === 1)
+                      };
+                    })
+                  }
+                };
+              })
+            }
+          }
+        ]
+      }
+    },
+    method: true
+  });
+});
+
+if (Object.keys(handlers).length) {
+  moduleBody.properties.push({
+    type: 'Property',
+    key: {
+      type: 'Identifier',
+      name: 'handlers'
+    },
+    value: {
+      type: 'FunctionExpression',
+      "params": [
+        {
+          "type": "Identifier",
+          "name": "self"
+        },
+        {
+          "type": "Identifier",
+          "name": "options"
+        }
+      ],
+      body: {
+        type: 'BlockStatement',
+        body: [
+          {
+            type: 'ReturnStatement',
+            argument: {
+              type: 'ObjectExpression',
+              properties: Object.keys(handlers).map(eventName => {
+                return {
+                  type: 'Property',
+                  key: {
+                    "type": "Literal",
+                    "value": eventName
+                  },
+                  value: {
+                    type: 'ObjectExpression',
+                    properties: Object.keys(handlers[eventName]).map(name => ({
                       type: 'Property',
                       key: {
                         type: 'Identifier',
                         name: name
                       },
-                      value: middlewareAndRouteFunction(apiRoutes[httpMethod][name]),
+                      value: handlers[eventName][name],
+                      leadingComments: handlers[eventName][name].comments,
                       method: true
                     }))
                   }
@@ -228,50 +299,68 @@ if (Object.keys(apiRoutes).length) {
   });
 }
 
-if (methods.length) {
-  moduleBody.properties.push({
-    type: 'Property',
-    key: {
-      type: 'Identifier',
-      name: 'methods'
-    },
-    value: {
-      type: 'FunctionExpression',
-      "params": [
-        {
-          "type": "Identifier",
-          "name": "self"
-        },
-        {
-          "type": "Identifier",
-          "name": "options"
-        }
-      ],
-      body: {
-        type: 'BlockStatement',
-        body: [
+const extendMethods = methods.filter(method => superCaptures[method.name]);
+methods = methods.filter(method => !superCaptures[method.name]);
+
+outputMethods('methods', methods);
+outputMethods('extendMethods', extendMethods);
+
+function outputMethods(category, methods) {
+  if (methods.length) {
+    moduleBody.properties.push({
+      type: 'Property',
+      key: {
+        type: 'Identifier',
+        name: category
+      },
+      value: {
+        type: 'FunctionExpression',
+        "params": [
           {
-            type: 'ReturnStatement',
-            argument: {
-              type: 'ObjectExpression',
-              properties: methods.map(method => {
-                return {
-                  type: 'Property',
-                  key: {
-                    type: 'Identifier',
-                    name: method.name
-                  },
-                  value: method.statement.expression.right,
-                  method: true
-                };
-              })
-            }
+            "type": "Identifier",
+            "name": "self"
+          },
+          {
+            "type": "Identifier",
+            "name": "options"
           }
-        ]
-      }
-    },
-    method: true
-  });
+        ],
+        body: {
+          type: 'BlockStatement',
+          body: [
+            {
+              type: 'ReturnStatement',
+              argument: {
+                type: 'ObjectExpression',
+                properties: methods.map(method => {
+                  const fn = method.statement.expression.right;
+                  if (category === 'extendMethods') {
+                    fn.params = fn.params || [];
+                    fn.params.unshift({
+                      type: 'Identifier',
+                      name: '_super'
+                    });
+                    replaceIdentifier(fn, superCaptures[method.name], '_super');
+                  }
+                  return {
+                    type: 'Property',
+                    key: {
+                      type: 'Identifier',
+                      name: method.name
+                    },
+                    value: fn,
+                    method: true,
+                    leadingComments: method.comments
+                  };
+                })
+              }
+            }
+          ]
+        }
+      },
+      method: true
+    });
+  }
 }
 
 const required = {};
@@ -308,7 +397,7 @@ parsed.body = parsed.body.filter(expression => {
   return true;
 });
 
-console.log(escodegen.generate(parsed));
+console.log(escodegen.generate(parsed, { comment: true }));
 
 function parseConstruct(body) {
   body.forEach(statement => {
@@ -319,7 +408,8 @@ function parseConstruct(body) {
         if (fn.type === 'FunctionExpression') {
           methods.push({
             name: methodName,
-            statement: statement
+            statement: statement,
+            comments: getCommentsBefore(statement)
           });
           return;
         }
@@ -417,3 +507,64 @@ function camelName(s) {
   return n;
 };
 
+// Recursively replace an identifier such as "superOldMethodName" with an
+// identifier such as "_super" throughout "context", even if nested etc.
+
+function replaceIdentifier(context, oldId, newId) {
+  Object.keys(context).forEach(key => {
+    const value = context[key];
+    if (value && (value.type === 'Identifier') && (value.name === oldId)) {
+      value.name = newId;
+    }
+    if (value && ((typeof value) === 'object')) {
+      replaceIdentifier(value, oldId, newId);
+    }
+  });
+}
+
+function getCommentsBefore(statement) {
+  const commentsBefore = statement.loc.start.line;
+  const comments = [];
+  let i = parsed.comments.findIndex(comment => {
+    return (comment.loc.end.line === (commentsBefore - 1)) || (comment.loc.end.line === (commentsBefore - 2));
+  });
+  if (i === -1) {
+    return [];
+  }
+  comments.push(parsed.comments[i]);
+  while (true) {
+    const j = parsed.comments.findIndex(comment => {
+      return comment.loc.end.line === (parsed.comments[i].loc.start.line - 1);
+    });
+    if (j === -1) {
+      break;
+    }
+    comments.push(parsed.comments[j]);
+    i = j;
+  }
+  comments.reverse();
+  return comments;
+}
+
+function route(type, init) {
+  if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.type') === 'MemberExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === type)) {
+    const args = get(init, 'expression.arguments');
+    if (!args) {
+      return false;
+    }
+    const method = get(args[0], 'value');
+    const name = camelName(get(args[1], 'value'));
+    if (!(method && name)) {
+      return false;
+    }
+    const comments = getCommentsBefore(init);
+    let fns = args.slice(2);
+    fns[0].comments = comments;
+    routes[type] = routes[type] || {};
+    routes[type][method] = routes[type][method] || {};
+    routes[type][method][name] = fns;
+    return true;
+  } else {
+    return false;
+  }
+}
