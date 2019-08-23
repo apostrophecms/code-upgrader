@@ -3,7 +3,6 @@ const code = require('fs').readFileSync(moduleName, 'utf8');
 const esprima = require('esprima');
 const escodegen = require('escodegen');
 const parsed = esprima.parseScript(code, { comment: true, loc: true });
-
 const prologue = [];
 let methods = [];
 let earlyInits = [];
@@ -12,6 +11,7 @@ let adjusts = [];
 const options = [];
 const routes = {};
 const superCaptures = {};
+const moveMethodsToHandlers = [];
 const specials = {
   'extend': true,
   'improve': true,
@@ -38,7 +38,7 @@ parsed.body.forEach(statement => {
       if (name === 'construct') {
         const value = get(property, 'value.body');
         if (get(value, 'type') === 'BlockStatement') {
-          parseConstruct(value.body);
+          parseConstruct(parsed, value.body);
         }
       } else if (name === 'beforeConstruct') {
         const value = get(property, 'value.body');
@@ -108,7 +108,16 @@ inits = inits.filter(function(init) {
     return false;
   } else if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'on')) {
     const arguments = get(init, 'expression.arguments');
-    if ((arguments[0].type !== 'Literal') || (arguments[1].type !== 'Literal') || (arguments[2].type !== 'FunctionExpression')) {
+    if ((arguments[0].type !== 'Literal') || (arguments[1].type !== 'Literal')) {
+      return true;
+    }
+    if (!arguments[2]) {
+      const fullEventName = arguments[0].value;
+      const handlerName = arguments[1].value;
+      handlers[fullEventName] = handlers[fullEventName] || {};
+      // moveMethodsToHandlers.push([ fullEventName, handlerName ]);
+      return false;
+    } else if (arguments[2].type !== 'FunctionExpression') {
       return true;
     }
     const fullEventName = arguments[0].value;
@@ -242,6 +251,17 @@ Object.keys(routes).forEach(type => {
   });
 });
 
+for (const item of moveMethodsToHandlers) {
+  const method = methods.find(method => method.name === item[1]);
+  handlers[item[0]][item[1]] = method.statement.expression.right;
+  handlers[item[0]][item[1]].comments = method.comments;
+  console.log(handlers[item[0]][item[1]].comments );
+  methods = methods.filter(method => method.name !== item[1]);
+}
+
+const extendMethods = methods.filter(method => superCaptures[method.name]);
+methods = methods.filter(method => !superCaptures[method.name]);
+
 if (Object.keys(handlers).length) {
   moduleBody.properties.push({
     type: 'Property',
@@ -298,9 +318,6 @@ if (Object.keys(handlers).length) {
     method: true
   });
 }
-
-const extendMethods = methods.filter(method => superCaptures[method.name]);
-methods = methods.filter(method => !superCaptures[method.name]);
 
 outputMethods('methods', methods);
 outputMethods('extendMethods', extendMethods);
@@ -399,7 +416,7 @@ parsed.body = parsed.body.filter(expression => {
 
 console.log(escodegen.generate(parsed, { comment: true }));
 
-function parseConstruct(body) {
+function parseConstruct(parsed, body) {
   body.forEach(statement => {
     if (statement.type === 'ExpressionStatement') {
       if (statement.expression.type === 'AssignmentExpression') {
@@ -423,7 +440,7 @@ function parseConstruct(body) {
             fsPath += '.js';
           }
           const code = require('fs').readFileSync(fsPath, 'utf8');
-          const parsed = esprima.parseScript(code);
+          const parsed = esprima.parseScript(code, { comment: true, loc: true });
           parsed.body.forEach(statement => {
             if (
               (get(statement, 'expression.left.object.name') === 'module') &&
@@ -434,7 +451,7 @@ function parseConstruct(body) {
                 return null;
               }
               if (right.body && right.body.body) {
-                parseConstruct(right.body.body);
+                parseConstruct(parsed, right.body.body);
               }
             } else {
               prologue.push(statement);
