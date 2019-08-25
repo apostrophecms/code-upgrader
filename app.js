@@ -2,7 +2,8 @@ const moduleName = process.argv[2];
 const code = require('fs').readFileSync(moduleName, 'utf8');
 const esprima = require('esprima');
 const escodegen = require('escodegen');
-const parsed = esprima.parseScript(code, { comment: true, loc: true });
+let parsed = esprima.parseScript(code, { comment: true, tokens: true, range: true, loc: true });
+parsed = escodegen.attachComments(parsed, parsed.comments, parsed.tokens);
 const prologue = [];
 let methods = [];
 let earlyInits = [];
@@ -123,7 +124,7 @@ inits = inits.filter(function(init) {
     const fullEventName = arguments[0].value;
     const handlerName = arguments[1].value;
     const handler = arguments[2];
-    handler.comments = getCommentsBefore(handler);
+//    handler.comments = getCommentsBefore(handler);
     handlers[fullEventName] = handlers[fullEventName] || {};
     handlers[fullEventName][handlerName] = handler;
   } else if ((get(init, 'type') === 'VariableDeclaration') && (get(init, 'declarations.0.id.name').match(/^super/))) {
@@ -254,8 +255,8 @@ Object.keys(routes).forEach(type => {
 for (const item of moveMethodsToHandlers) {
   const method = methods.find(method => method.name === item[1]);
   handlers[item[0]][item[1]] = method.statement.expression.right;
-  handlers[item[0]][item[1]].comments = method.comments;
-  console.log(handlers[item[0]][item[1]].comments );
+//  handlers[item[0]][item[1]].comments = method.comments;
+ // console.log(handlers[item[0]][item[1]].comments );
   methods = methods.filter(method => method.name !== item[1]);
 }
 
@@ -304,7 +305,7 @@ if (Object.keys(handlers).length) {
                         name: name
                       },
                       value: handlers[eventName][name],
-                      leadingComments: handlers[eventName][name].comments,
+//                      leadingComments: handlers[eventName][name].comments,
                       method: true
                     }))
                   }
@@ -367,7 +368,7 @@ function outputMethods(category, methods) {
                     },
                     value: fn,
                     method: true,
-                    leadingComments: method.comments
+//                    leadingComments: method.comments
                   };
                 })
               }
@@ -426,7 +427,7 @@ function parseConstruct(parsed, body) {
           methods.push({
             name: methodName,
             statement: statement,
-            comments: getCommentsBefore(statement)
+//            comments: getCommentsBefore(statement)
           });
           return;
         }
@@ -440,7 +441,8 @@ function parseConstruct(parsed, body) {
             fsPath += '.js';
           }
           const code = require('fs').readFileSync(fsPath, 'utf8');
-          const parsed = esprima.parseScript(code, { comment: true, loc: true });
+          let parsed = esprima.parseScript(code, { range: true, tokens: true, comment: true, loc: true });
+          parsed = escodegen.attachComments(parsed, parsed.comments, parsed.tokens);
           parsed.body.forEach(statement => {
             if (
               (get(statement, 'expression.left.object.name') === 'module') &&
@@ -489,6 +491,8 @@ function get(o, s) {
 
 function middlewareAndRouteFunction(fns) {
   if (fns.length === 1) {
+    // Methods are not arrow functions
+    fns[0].type = 'FunctionExpression';
     return fns[0];  
   } else {
     return {
@@ -574,9 +578,8 @@ function route(type, init) {
     if (!(method && name)) {
       return false;
     }
-    const comments = getCommentsBefore(init);
     let fns = args.slice(2);
-    fns[0].comments = comments;
+    fns[0].comments = init.leadingComments;
     routes[type] = routes[type] || {};
     routes[type][method] = routes[type][method] || {};
     routes[type][method][name] = fns;
