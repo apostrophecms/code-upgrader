@@ -116,11 +116,12 @@ inits = inits.filter(function(init) {
       const fullEventName = arguments[0].value;
       const handlerName = arguments[1].value;
       handlers[fullEventName] = handlers[fullEventName] || {};
-      // moveMethodsToHandlers.push([ fullEventName, handlerName ]);
+      moveMethodsToHandlers.push([ fullEventName, handlerName ]);
       return false;
-    } else if (arguments[2].type !== 'FunctionExpression') {
+    } else if ((arguments[2].type !== 'FunctionExpression') && (arguments[2].type !== 'ArrowFunctionExpression')) {
       return true;
     }
+    arguments[2].type = 'FunctionExpression';
     const fullEventName = arguments[0].value;
     const handlerName = arguments[1].value;
     const handler = arguments[2];
