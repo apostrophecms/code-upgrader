@@ -16,11 +16,12 @@ const moveMethodsToHandlers = [];
 const specials = {
   'extend': true,
   'improve': true,
-  'moogBundle': true
+  'moogBundle': 'bundle'
 };
 
 const specialsFound = {};
 
+let moduleAssignment;
 let moduleBody;
 const handlers = {};
 
@@ -33,7 +34,26 @@ parsed.body.forEach(statement => {
     if (get(right, 'type') !== 'ObjectExpression') {
       return null;
     }
-    moduleBody = right;
+    moduleAssignment = statement;
+    moduleBody = [];
+    moduleFunction = {
+      type: 'ArrowFunctionExpression',
+      params: [
+        {
+          'type': 'Identifier',
+          'name': 'self'
+        },
+        {
+          'type': 'Identifier',
+          'name': 'options'
+        }
+      ],
+      body: {
+        type: 'ObjectExpression',
+        properties: moduleBody
+      }
+    };
+    moduleAssignment.expression.right = moduleFunction;
     get(right, 'properties').forEach(property => {
       const name = get(property, 'key.name');
       if (name === 'construct') {
@@ -52,7 +72,11 @@ parsed.body.forEach(statement => {
           parseAfterConstruct(value.body);
         }
       } else if (specials[name]) {
-        specialsFound[name] = get(property, 'value');
+        if (specials[name] === true) {
+          specialsFound[name] = get(property, 'value');
+        } else {
+          specialsFound[specials[name]] = get(property, 'value');
+        }
       } else {
         options[name] = get(property, 'value');
       }
@@ -62,10 +86,8 @@ parsed.body.forEach(statement => {
 
 parsed.body = prologue.concat(parsed.body);
 
-moduleBody.properties = [];
-
 Object.keys(specialsFound).forEach(special => {
-  moduleBody.properties.push({
+  moduleBody.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -76,7 +98,7 @@ Object.keys(specialsFound).forEach(special => {
 });
 
 if (Object.keys(options).length) {
-  moduleBody.properties.push({
+  moduleBody.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -137,7 +159,7 @@ inits = inits.filter(function(init) {
 });
 
 if (adjusts.length) {
-  moduleBody.properties.push({
+  moduleBody.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -145,16 +167,7 @@ if (adjusts.length) {
     },
     value: {
       type: 'FunctionExpression',
-      params: [
-        {
-          'type': 'Identifier',
-          'name': 'self'
-        },
-        {
-          'type': 'Identifier',
-          'name': 'options'
-        }
-      ],
+      params: [],
       body: {
         type: 'BlockStatement',
         body: adjusts
@@ -165,7 +178,7 @@ if (adjusts.length) {
 }
 
 if (inits.length) {
-  moduleBody.properties.push({
+  moduleBody.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -173,16 +186,7 @@ if (inits.length) {
     },
     value: {
       type: 'FunctionExpression',
-      params: [
-        {
-          'type': 'Identifier',
-          'name': 'self'
-        },
-        {
-          'type': 'Identifier',
-          'name': 'options'
-        }
-      ],
+      params: [],
       body: {
         type: 'BlockStatement',
         body: inits
@@ -194,63 +198,42 @@ if (inits.length) {
 }
 
 Object.keys(routes).forEach(type => {
-  moduleBody.properties.push({
+  const prop = {
     type: 'Property',
     key: {
       type: 'Identifier',
       name: type + 's'
     },
     value: {
-      type: 'FunctionExpression',
-      "params": [
-        {
-          "type": "Identifier",
-          "name": "self"
-        },
-        {
-          "type": "Identifier",
-          "name": "options"
-        }
-      ],
-      body: {
-        type: 'BlockStatement',
-        body: [
-          {
-            type: 'ReturnStatement',
-            argument: {
-              type: 'ObjectExpression',
-              properties: Object.keys(routes[type]).map(httpMethod => {
-                return {
-                  type: 'Property',
-                  key: {
-                    type: 'Identifier',
-                    name: httpMethod
-                  },
-                  value: {
-                    type: 'ObjectExpression',
-                    properties: Object.keys(routes[type][httpMethod]).map(name => {
-                      const fns = routes[type][httpMethod][name];
-                      return {
-                        type: 'Property',
-                        key: {
-                          type: 'Identifier',
-                          name: name
-                        },
-                        leadingComments: fns[0].comments,
-                        value: middlewareAndRouteFunction(fns),
-                        method: (fns.length === 1)
-                      };
-                    })
-                  }
-                };
-              })
-            }
+      type: 'ObjectExpression',
+      properties: Object.keys(routes[type]).map(httpMethod => {
+        return {
+          type: 'Property',
+          key: {
+            type: 'Identifier',
+            name: httpMethod
+          },
+          value: {
+            type: 'ObjectExpression',
+            properties: Object.keys(routes[type][httpMethod]).map(name => {
+              const fns = routes[type][httpMethod][name];
+              return {
+                type: 'Property',
+                key: {
+                  type: 'Identifier',
+                  name: name
+                },
+                leadingComments: fns[0].comments,
+                value: middlewareAndRouteFunction(fns),
+                method: true
+              };
+            })
           }
-        ]
-      }
-    },
-    method: true
-  });
+        };
+      })
+    }
+  }
+  moduleBody.push(prop);
 });
 
 for (const item of moveMethodsToHandlers) {
@@ -265,59 +248,37 @@ const extendMethods = methods.filter(method => superCaptures[method.name]);
 methods = methods.filter(method => !superCaptures[method.name]);
 
 if (Object.keys(handlers).length) {
-  moduleBody.properties.push({
+  moduleBody.push({
     type: 'Property',
     key: {
       type: 'Identifier',
       name: 'handlers'
     },
     value: {
-      type: 'FunctionExpression',
-      "params": [
-        {
-          "type": "Identifier",
-          "name": "self"
-        },
-        {
-          "type": "Identifier",
-          "name": "options"
-        }
-      ],
-      body: {
-        type: 'BlockStatement',
-        body: [
-          {
-            type: 'ReturnStatement',
-            argument: {
-              type: 'ObjectExpression',
-              properties: Object.keys(handlers).map(eventName => {
-                return {
-                  type: 'Property',
-                  key: {
-                    "type": "Literal",
-                    "value": eventName
-                  },
-                  value: {
-                    type: 'ObjectExpression',
-                    properties: Object.keys(handlers[eventName]).map(name => ({
-                      type: 'Property',
-                      key: {
-                        type: 'Identifier',
-                        name: name
-                      },
-                      value: handlers[eventName][name],
+      type: 'ObjectExpression',
+      properties: Object.keys(handlers).map(eventName => {
+        return {
+          type: 'Property',
+          key: {
+            "type": "Literal",
+            "value": eventName
+          },
+          value: {
+            type: 'ObjectExpression',
+            properties: Object.keys(handlers[eventName]).map(name => ({
+              type: 'Property',
+              key: {
+                type: 'Identifier',
+                name: name
+              },
+              value: handlers[eventName][name],
 //                      leadingComments: handlers[eventName][name].comments,
-                      method: true
-                    }))
-                  }
-                };
-              })
-            }
+              method: true
+            }))
           }
-        ]
-      }
-    },
-    method: true
+        };
+      })
+    }
   });
 }
 
@@ -326,58 +287,36 @@ outputMethods('extendMethods', extendMethods);
 
 function outputMethods(category, methods) {
   if (methods.length) {
-    moduleBody.properties.push({
+    moduleBody.push({
       type: 'Property',
       key: {
         type: 'Identifier',
         name: category
       },
       value: {
-        type: 'FunctionExpression',
-        "params": [
-          {
-            "type": "Identifier",
-            "name": "self"
-          },
-          {
-            "type": "Identifier",
-            "name": "options"
+        type: 'ObjectExpression',
+        properties: methods.map(method => {
+          const fn = method.statement.expression.right;
+          if (category === 'extendMethods') {
+            fn.params = fn.params || [];
+            fn.params.unshift({
+              type: 'Identifier',
+              name: '_super'
+            });
+            replaceIdentifier(fn, superCaptures[method.name], '_super');
           }
-        ],
-        body: {
-          type: 'BlockStatement',
-          body: [
-            {
-              type: 'ReturnStatement',
-              argument: {
-                type: 'ObjectExpression',
-                properties: methods.map(method => {
-                  const fn = method.statement.expression.right;
-                  if (category === 'extendMethods') {
-                    fn.params = fn.params || [];
-                    fn.params.unshift({
-                      type: 'Identifier',
-                      name: '_super'
-                    });
-                    replaceIdentifier(fn, superCaptures[method.name], '_super');
-                  }
-                  return {
-                    type: 'Property',
-                    key: {
-                      type: 'Identifier',
-                      name: method.name
-                    },
-                    value: fn,
-                    method: true,
+          return {
+            type: 'Property',
+            key: {
+              type: 'Identifier',
+              name: method.name
+            },
+            value: fn,
+            method: true,
 //                    leadingComments: method.comments
-                  };
-                })
-              }
-            }
-          ]
-        }
-      },
-      method: true
+          };
+        })
+      }
     });
   }
 }
