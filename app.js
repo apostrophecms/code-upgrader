@@ -147,7 +147,6 @@ inits = inits.filter(function(init) {
     const fullEventName = arguments[0].value;
     const handlerName = arguments[1].value;
     const handler = arguments[2];
-//    handler.comments = getCommentsBefore(handler);
     handlers[fullEventName] = handlers[fullEventName] || {};
     handlers[fullEventName][handlerName] = handler;
   } else if ((get(init, 'type') === 'VariableDeclaration') && (get(init, 'declarations.0.id.name').match(/^super/))) {
@@ -313,7 +312,7 @@ function outputMethods(category, methods) {
             },
             value: fn,
             method: true,
-//                    leadingComments: method.comments
+            leadingComments: method.leadingComments
           };
         })
       }
@@ -367,7 +366,7 @@ function parseConstruct(parsed, body) {
           methods.push({
             name: methodName,
             statement: statement,
-//            comments: getCommentsBefore(statement)
+            leadingComments: statement.leadingComments
           });
           return;
         }
@@ -483,30 +482,6 @@ function replaceIdentifier(context, oldId, newId) {
   });
 }
 
-function getCommentsBefore(statement) {
-  const commentsBefore = statement.loc.start.line;
-  const comments = [];
-  let i = parsed.comments.findIndex(comment => {
-    return (comment.loc.end.line === (commentsBefore - 1)) || (comment.loc.end.line === (commentsBefore - 2));
-  });
-  if (i === -1) {
-    return [];
-  }
-  comments.push(parsed.comments[i]);
-  while (true) {
-    const j = parsed.comments.findIndex(comment => {
-      return comment.loc.end.line === (parsed.comments[i].loc.start.line - 1);
-    });
-    if (j === -1) {
-      break;
-    }
-    comments.push(parsed.comments[j]);
-    i = j;
-  }
-  comments.reverse();
-  return comments;
-}
-
 function route(type, init) {
   if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.type') === 'MemberExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === type)) {
     const args = get(init, 'expression.arguments');
@@ -519,7 +494,7 @@ function route(type, init) {
       return false;
     }
     let fns = args.slice(2);
-    fns[0].comments = init.leadingComments;
+    fns[0].leadingComments = init.leadingComments;
     routes[type] = routes[type] || {};
     routes[type][method] = routes[type][method] || {};
     routes[type][method][name] = fns;
