@@ -1,7 +1,13 @@
-const moduleName = process.argv[2];
-const code = require('fs').readFileSync(moduleName, 'utf8');
+const fs = require('fs');
 const esprima = require('esprima');
 const escodegen = require('escodegen');
+
+// This is a random identifier not used anywhere else
+const blankLineMarker = "// X0k7FEu5a6!bC6mV";
+
+const moduleName = process.argv[2];
+const code = protectBlankLines(require('fs').readFileSync(moduleName, 'utf8'));
+
 let parsed = esprima.parseScript(code, { comment: true, tokens: true, range: true, loc: true });
 parsed = escodegen.attachComments(parsed, parsed.comments, parsed.tokens);
 const prologue = [];
@@ -18,10 +24,10 @@ const specials = {
   'improve': true,
   'moogBundle': 'bundle'
 };
+const importedPaths = [];
 
 const specialsFound = {};
 
-let moduleAssignment;
 let moduleBody;
 const handlers = {};
 
@@ -34,26 +40,7 @@ parsed.body.forEach(statement => {
     if (get(right, 'type') !== 'ObjectExpression') {
       return null;
     }
-    moduleAssignment = statement;
-    moduleBody = [];
-    moduleFunction = {
-      type: 'ArrowFunctionExpression',
-      params: [
-        {
-          'type': 'Identifier',
-          'name': 'self'
-        },
-        {
-          'type': 'Identifier',
-          'name': 'options'
-        }
-      ],
-      body: {
-        type: 'ObjectExpression',
-        properties: moduleBody
-      }
-    };
-    moduleAssignment.expression.right = moduleFunction;
+    moduleBody = right;
     get(right, 'properties').forEach(property => {
       const name = get(property, 'key.name');
       if (name === 'construct') {
@@ -72,11 +59,8 @@ parsed.body.forEach(statement => {
           parseAfterConstruct(value.body);
         }
       } else if (specials[name]) {
-        if (specials[name] === true) {
-          specialsFound[name] = get(property, 'value');
-        } else {
-          specialsFound[specials[name]] = get(property, 'value');
-        }
+        const special = (specials[name] === true) ? name : specials[name];
+        specialsFound[special] = get(property, 'value');
       } else {
         options[name] = get(property, 'value');
       }
@@ -86,8 +70,10 @@ parsed.body.forEach(statement => {
 
 parsed.body = prologue.concat(parsed.body);
 
+moduleBody.properties = [];
+
 Object.keys(specialsFound).forEach(special => {
-  moduleBody.push({
+  moduleBody.properties.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -98,7 +84,7 @@ Object.keys(specialsFound).forEach(special => {
 });
 
 if (Object.keys(options).length) {
-  moduleBody.push({
+  moduleBody.properties.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -158,7 +144,7 @@ inits = inits.filter(function(init) {
 });
 
 if (adjusts.length) {
-  moduleBody.push({
+  moduleBody.properties.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -166,7 +152,16 @@ if (adjusts.length) {
     },
     value: {
       type: 'FunctionExpression',
-      params: [],
+      params: [
+        {
+          'type': 'Identifier',
+          'name': 'self'
+        },
+        {
+          'type': 'Identifier',
+          'name': 'options'
+        }
+      ],
       body: {
         type: 'BlockStatement',
         body: adjusts
@@ -177,7 +172,7 @@ if (adjusts.length) {
 }
 
 if (inits.length) {
-  moduleBody.push({
+  moduleBody.properties.push({
     type: 'Property',
     key: {
       type: 'Identifier',
@@ -185,7 +180,16 @@ if (inits.length) {
     },
     value: {
       type: 'FunctionExpression',
-      params: [],
+      params: [
+        {
+          'type': 'Identifier',
+          'name': 'self'
+        },
+        {
+          'type': 'Identifier',
+          'name': 'options'
+        }
+      ],
       body: {
         type: 'BlockStatement',
         body: inits
@@ -197,42 +201,63 @@ if (inits.length) {
 }
 
 Object.keys(routes).forEach(type => {
-  const prop = {
+  moduleBody.properties.push({
     type: 'Property',
     key: {
       type: 'Identifier',
       name: type + 's'
     },
     value: {
-      type: 'ObjectExpression',
-      properties: Object.keys(routes[type]).map(httpMethod => {
-        return {
-          type: 'Property',
-          key: {
-            type: 'Identifier',
-            name: httpMethod
-          },
-          value: {
-            type: 'ObjectExpression',
-            properties: Object.keys(routes[type][httpMethod]).map(name => {
-              const fns = routes[type][httpMethod][name];
-              return {
-                type: 'Property',
-                key: {
-                  type: 'Identifier',
-                  name: name
-                },
-                leadingComments: fns[0].comments,
-                value: middlewareAndRouteFunction(fns),
-                method: true
-              };
-            })
+      type: 'FunctionExpression',
+      "params": [
+        {
+          "type": "Identifier",
+          "name": "self"
+        },
+        {
+          "type": "Identifier",
+          "name": "options"
+        }
+      ],
+      body: {
+        type: 'BlockStatement',
+        body: [
+          {
+            type: 'ReturnStatement',
+            argument: {
+              type: 'ObjectExpression',
+              properties: Object.keys(routes[type]).map(httpMethod => {
+                return {
+                  type: 'Property',
+                  key: {
+                    type: 'Identifier',
+                    name: httpMethod
+                  },
+                  value: {
+                    type: 'ObjectExpression',
+                    properties: Object.keys(routes[type][httpMethod]).map(name => {
+                      const fns = routes[type][httpMethod][name];
+                      return {
+                        type: 'Property',
+                        key: {
+                          type: 'Identifier',
+                          name: name
+                        },
+                        leadingComments: fns[0].comments,
+                        value: middlewareAndRouteFunction(fns),
+                        method: (fns.length === 1)
+                      };
+                    })
+                  }
+                };
+              })
+            }
           }
-        };
-      })
-    }
-  }
-  moduleBody.push(prop);
+        ]
+      }
+    },
+    method: true
+  });
 });
 
 for (const item of moveMethodsToHandlers) {
@@ -247,37 +272,59 @@ const extendMethods = methods.filter(method => superCaptures[method.name]);
 methods = methods.filter(method => !superCaptures[method.name]);
 
 if (Object.keys(handlers).length) {
-  moduleBody.push({
+  moduleBody.properties.push({
     type: 'Property',
     key: {
       type: 'Identifier',
       name: 'handlers'
     },
     value: {
-      type: 'ObjectExpression',
-      properties: Object.keys(handlers).map(eventName => {
-        return {
-          type: 'Property',
-          key: {
-            "type": "Literal",
-            "value": eventName
-          },
-          value: {
-            type: 'ObjectExpression',
-            properties: Object.keys(handlers[eventName]).map(name => ({
-              type: 'Property',
-              key: {
-                type: 'Identifier',
-                name: name
-              },
-              value: handlers[eventName][name],
+      type: 'FunctionExpression',
+      "params": [
+        {
+          "type": "Identifier",
+          "name": "self"
+        },
+        {
+          "type": "Identifier",
+          "name": "options"
+        }
+      ],
+      body: {
+        type: 'BlockStatement',
+        body: [
+          {
+            type: 'ReturnStatement',
+            argument: {
+              type: 'ObjectExpression',
+              properties: Object.keys(handlers).map(eventName => {
+                return {
+                  type: 'Property',
+                  key: {
+                    "type": "Literal",
+                    "value": eventName
+                  },
+                  value: {
+                    type: 'ObjectExpression',
+                    properties: Object.keys(handlers[eventName]).map(name => ({
+                      type: 'Property',
+                      key: {
+                        type: 'Identifier',
+                        name: name
+                      },
+                      value: handlers[eventName][name],
 //                      leadingComments: handlers[eventName][name].comments,
-              method: true
-            }))
+                      method: true
+                    }))
+                  }
+                };
+              })
+            }
           }
-        };
-      })
-    }
+        ]
+      }
+    },
+    method: true
   });
 }
 
@@ -286,36 +333,58 @@ outputMethods('extendMethods', extendMethods);
 
 function outputMethods(category, methods) {
   if (methods.length) {
-    moduleBody.push({
+    moduleBody.properties.push({
       type: 'Property',
       key: {
         type: 'Identifier',
         name: category
       },
       value: {
-        type: 'ObjectExpression',
-        properties: methods.map(method => {
-          const fn = method.statement.expression.right;
-          if (category === 'extendMethods') {
-            fn.params = fn.params || [];
-            fn.params.unshift({
-              type: 'Identifier',
-              name: '_super'
-            });
-            replaceIdentifier(fn, superCaptures[method.name], '_super');
+        type: 'FunctionExpression',
+        "params": [
+          {
+            "type": "Identifier",
+            "name": "self"
+          },
+          {
+            "type": "Identifier",
+            "name": "options"
           }
-          return {
-            type: 'Property',
-            key: {
-              type: 'Identifier',
-              name: method.name
-            },
-            value: fn,
-            method: true,
-            leadingComments: method.leadingComments
-          };
-        })
-      }
+        ],
+        body: {
+          type: 'BlockStatement',
+          body: [
+            {
+              type: 'ReturnStatement',
+              argument: {
+                type: 'ObjectExpression',
+                properties: methods.map(method => {
+                  const fn = method.statement.expression.right;
+                  if (category === 'extendMethods') {
+                    fn.params = fn.params || [];
+                    fn.params.unshift({
+                      type: 'Identifier',
+                      name: '_super'
+                    });
+                    replaceIdentifier(fn, superCaptures[method.name], '_super');
+                  }
+                  return {
+                    type: 'Property',
+                    key: {
+                      type: 'Identifier',
+                      name: method.name
+                    },
+                    value: fn,
+                    method: true,
+                    leadingComments: method.leadingComments
+                  };
+                })
+              }
+            }
+          ]
+        }
+      },
+      method: true
     });
   }
 }
@@ -354,7 +423,34 @@ parsed.body = parsed.body.filter(expression => {
   return true;
 });
 
-console.log(escodegen.generate(parsed, { comment: true }));
+// if we're going to crash, do it before we start overwriting or
+// removing any files
+
+const generated = restoreBlankLines(escodegen.generate(parsed, {
+  format: {
+    indent: {
+      style: '  ',
+      base: 0,
+      adjustMultilineComment: false
+    },
+    newline: '\n',
+    space: ' ',
+    json: false,
+    renumber: false,
+    hexadecimal: false,
+    quotes: 'single',
+    escapeless: false,
+    compact: false,
+    parentheses: true,
+    semicolons: true,
+    safeConcatenation: false
+  },
+  comment: true
+}));
+
+fs.writeFileSync(moduleName, generated);
+
+importedPaths.map(fs.unlinkSync);
 
 function parseConstruct(parsed, body) {
   body.forEach(statement => {
@@ -379,6 +475,7 @@ function parseConstruct(parsed, body) {
           if (!fsPath.match(/\.js$/)) {
             fsPath += '.js';
           }
+          importedPaths.push(fsPath);
           const code = require('fs').readFileSync(fsPath, 'utf8');
           let parsed = esprima.parseScript(code, { range: true, tokens: true, comment: true, loc: true });
           parsed = escodegen.attachComments(parsed, parsed.comments, parsed.tokens);
@@ -502,4 +599,21 @@ function route(type, init) {
   } else {
     return false;
   }
+}
+
+// Thanks, anonymous! https://github.com/estools/escodegen/issues/277#issuecomment-363903537
+
+function protectBlankLines(code) {
+  const lines = code.split('\n');
+  const replacedLines = lines.map(line => {
+      if (line.length === 0 || /^\s+$/.test(line)) {
+        return blankLineMarker;
+      }
+      return line;
+  });
+  return replacedLines.join('\n').replace(/\n +\n/g, '\n\n');
+}
+
+function restoreBlankLines(code) {
+  return code.split(blankLineMarker).join('');
 }
