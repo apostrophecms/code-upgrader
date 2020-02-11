@@ -16,9 +16,8 @@ function processModule(moduleName) {
   if (!moduleName.match(/\.js$/)) {
     moduleName = moduleName + '/index.js';
   }
-  console.log(moduleName);
   const code = protectBlankLines(require('fs').readFileSync(moduleName, 'utf8'));
-
+  let helpers;
   const comments = [];
   const tokens = [];
   let parsed = acorn.parse(code, { ranges: true, locations: true, onComment: comments, onToken: tokens });
@@ -131,28 +130,11 @@ function processModule(moduleName) {
       return false;
     } else if (route('route', init)) {
       return false;
-    } else if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'on')) {
-      const arguments = get(init, 'expression.arguments');
-      if ((arguments[0].type !== 'Literal') || (arguments[1].type !== 'Literal')) {
-        return true;
-      }
-      if (!arguments[2]) {
-        const fullEventName = arguments[0].value;
-        const handlerName = arguments[1].value;
-        handlers[fullEventName] = handlers[fullEventName] || {};
-        moveMethodsToHandlers.push([ fullEventName, handlerName ]);
-        return false;
-      } else if ((arguments[2].type !== 'FunctionExpression') && (arguments[2].type !== 'ArrowFunctionExpression')) {
-        return true;
-      }
-      arguments[2].type = 'FunctionExpression';
-      const fullEventName = arguments[0].value;
-      const handlerName = arguments[1].value;
-      const handler = arguments[2];
-      handlers[fullEventName] = handlers[fullEventName] || {};
-      handlers[fullEventName][handlerName] = handler;
-    } else if ((get(init, 'type') === 'VariableDeclaration') && (get(init, 'declarations.0.id.name').match(/^super/))) {
-      superCaptures[get(init, 'declarations.0.init.property.name')] = get(init, 'declarations.0.id.name');
+    } else if (addHelpers(init)) {
+      return false;
+    } else if (onEvent(init)) {
+      return false;
+    } else if (superCapture(init)) {
       return false;
     } else {
       return true;
@@ -346,64 +328,7 @@ function processModule(moduleName) {
 
   outputMethods('methods', methods);
   outputMethods('extendMethods', extendMethods);
-
-  function outputMethods(category, methods) {
-    if (methods.length) {
-      moduleBody.properties.push({
-        type: 'Property',
-        key: {
-          type: 'Identifier',
-          name: category
-        },
-        value: {
-          type: 'FunctionExpression',
-          "params": [
-            {
-              "type": "Identifier",
-              "name": "self"
-            },
-            {
-              "type": "Identifier",
-              "name": "options"
-            }
-          ],
-          body: {
-            type: 'BlockStatement',
-            body: [
-              {
-                type: 'ReturnStatement',
-                argument: {
-                  type: 'ObjectExpression',
-                  properties: methods.map(method => {
-                    const fn = method.statement.expression.right;
-                    if (category === 'extendMethods') {
-                      fn.params = fn.params || [];
-                      fn.params.unshift({
-                        type: 'Identifier',
-                        name: '_super'
-                      });
-                      replaceIdentifier(fn, superCaptures[method.name], '_super');
-                    }
-                    return {
-                      type: 'Property',
-                      key: {
-                        type: 'Identifier',
-                        name: method.name
-                      },
-                      value: fn,
-                      method: true,
-                      leadingComments: method.leadingComments
-                    };
-                  })
-                }
-              }
-            ]
-          }
-        },
-        method: true
-      });
-    }
-  }
+  outputHelpers(helpers);
 
   const required = {};
 
@@ -534,12 +459,12 @@ function processModule(moduleName) {
       return null;
     }
     clauses = s.split(/\./);
-    clauses.forEach(c => {
+    for (c of clauses) {
       if (o[c] == null) {
         return null;
       }
       o = o[c];
-    });
+    }
     return o;
   };
 
@@ -619,6 +544,67 @@ function processModule(moduleName) {
     }
   }
 
+  function addHelpers(init) {
+    if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'enableHelpers')) {
+      const enableHelpers = methods.find(method => method.name === 'enableHelpers');
+      if (enableHelpers) {
+        const body = get(enableHelpers, 'statement.expression.right.body.body.0');
+        if (addHelpers(body)) {
+          methods = methods.filter(method => method.name !== 'enableHelpers');
+          return true;
+        }
+      }
+      return false;
+    } else if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'addHelpers')) {
+      const arguments = get(init, 'expression.arguments');
+      if (arguments[0].type === 'ObjectExpression') {
+        helpers = arguments[0];
+        return true;
+      } else if (
+        (get(arguments[0], 'callee.object.name') === '_') &&
+        (get(arguments[0], 'callee.property.name') === 'pick')
+      ) {
+        helpers = {
+          type: 'ArrayExpression',
+          elements: arguments[0].arguments.slice(1)
+        };
+        return true;
+      }
+    }
+  }
+
+  function onEvent(init) {
+    if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'on')) {
+      const arguments = get(init, 'expression.arguments');
+      if ((arguments[0].type !== 'Literal') || (arguments[1].type !== 'Literal')) {
+        return false;
+      }
+      if (!arguments[2]) {
+        const fullEventName = arguments[0].value;
+        const handlerName = arguments[1].value;
+        handlers[fullEventName] = handlers[fullEventName] || {};
+        moveMethodsToHandlers.push([ fullEventName, handlerName ]);
+        return true;
+      } else if ((arguments[2].type !== 'FunctionExpression') && (arguments[2].type !== 'ArrowFunctionExpression')) {
+        return false;
+      }
+      arguments[2].type = 'FunctionExpression';
+      const fullEventName = arguments[0].value;
+      const handlerName = arguments[1].value;
+      const handler = arguments[2];
+      handlers[fullEventName] = handlers[fullEventName] || {};
+      handlers[fullEventName][handlerName] = handler;    
+      return true;
+    }
+  }
+
+  function superCapture(init) {
+    if ((get(init, 'type') === 'VariableDeclaration') && (get(init, 'declarations.0.id.name').match(/^super/))) {
+      superCaptures[get(init, 'declarations.0.init.property.name')] = get(init, 'declarations.0.id.name');
+      return true;
+    }
+  }
+
   // Thanks, anonymous! https://github.com/estools/escodegen/issues/277#issuecomment-363903537
 
   function protectBlankLines(code) {
@@ -634,6 +620,111 @@ function processModule(moduleName) {
 
   function restoreBlankLines(code) {
     return code.split(blankLineMarker).join('');
+  }
+
+  function outputHelpers(helpers) {
+    if (!helpers) {
+      return;
+    }
+    if (helpers.type === 'ArrayExpression') {
+      moduleBody.properties.push({
+        type: 'Property',
+        key: {
+          type: 'Identifier',
+          name: 'helpers',
+        },
+        value: helpers
+      });
+    } else {
+      moduleBody.properties.push({
+        type: 'Property',
+        key: {
+          type: 'Identifier',
+          name: 'helpers',
+        },
+        value: {
+          type: 'FunctionExpression',
+          "params": [
+            {
+              "type": "Identifier",
+              "name": "self"
+            },
+            {
+              "type": "Identifier",
+              "name": "options"
+            }
+          ],
+          body: {
+            type: 'BlockStatement',
+            body: [
+              {
+                type: 'ReturnStatement',
+                argument: helpers
+              }
+            ]
+          }
+        },
+        method: true
+      });
+    }
+  }
+
+  function outputMethods(category, methods) {
+    if (methods.length) {
+      moduleBody.properties.push({
+        type: 'Property',
+        key: {
+          type: 'Identifier',
+          name: category
+        },
+        value: {
+          type: 'FunctionExpression',
+          "params": [
+            {
+              "type": "Identifier",
+              "name": "self"
+            },
+            {
+              "type": "Identifier",
+              "name": "options"
+            }
+          ],
+          body: {
+            type: 'BlockStatement',
+            body: [
+              {
+                type: 'ReturnStatement',
+                argument: {
+                  type: 'ObjectExpression',
+                  properties: methods.map(method => {
+                    const fn = method.statement.expression.right;
+                    if (category === 'extendMethods') {
+                      fn.params = fn.params || [];
+                      fn.params.unshift({
+                        type: 'Identifier',
+                        name: '_super'
+                      });
+                      replaceIdentifier(fn, superCaptures[method.name], '_super');
+                    }
+                    return {
+                      type: 'Property',
+                      key: {
+                        type: 'Identifier',
+                        name: method.name
+                      },
+                      value: fn,
+                      method: true,
+                      leadingComments: method.leadingComments
+                    };
+                  })
+                }
+              }
+            ]
+          }
+        },
+        method: true
+      });
+    }
   }
 }
 

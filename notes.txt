@@ -1,0 +1,5 @@
+✅ * addHelpers calls are still not converting. Variations worth converting:
+✅ * addHelpers({ object ... })
+✅ * addHelpers(_.pick(self, some, method, names)) -> helpers: [ 'some', 'method', 'names' ]
+
+We can support this for any section.
