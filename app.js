@@ -1,5 +1,5 @@
 const fs = require('fs');
-const esprima = require('esprima');
+const acorn = require('acorn');
 const escodegen = require('escodegen');
 const argv = require('boring')();
 
@@ -19,8 +19,10 @@ function processModule(moduleName) {
   console.log(moduleName);
   const code = protectBlankLines(require('fs').readFileSync(moduleName, 'utf8'));
 
-  let parsed = esprima.parseScript(code, { comment: true, tokens: true, range: true, loc: true });
-  parsed = escodegen.attachComments(parsed, parsed.comments, parsed.tokens);
+  const comments = [];
+  const tokens = [];
+  let parsed = acorn.parse(code, { ranges: true, locations: true, onComment: comments, onToken: tokens });
+  parsed = escodegen.attachComments(parsed, comments, tokens);
   const prologue = [];
   let methods = [];
   let earlyInits = [];
@@ -491,8 +493,10 @@ function processModule(moduleName) {
             }
             importedPaths.push(fsPath);
             const code = require('fs').readFileSync(fsPath, 'utf8');
-            let parsed = esprima.parseScript(code, { range: true, tokens: true, comment: true, loc: true });
-            parsed = escodegen.attachComments(parsed, parsed.comments, parsed.tokens);
+            const comments = [];
+            const tokens = [];
+            let parsed = acorn.parse(code, { locations: true, ranges: true, onToken: tokens, onComment: comments });
+            parsed = escodegen.attachComments(parsed, comments, tokens);
             parsed.body.forEach(statement => {
               if (
                 (get(statement, 'expression.left.object.name') === 'module') &&
