@@ -146,7 +146,7 @@ function processModule(moduleName) {
       type: 'Property',
       key: {
         type: 'Identifier',
-        name: 'adjustOptions'
+        name: 'beforeSuperClass'
       },
       value: {
         type: 'FunctionExpression',
