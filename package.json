@@ -1,12 +1,12 @@
 {
   "name": "apostrophe-3-upgrade-tools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "npx eslint ."
   },
-  "author": "",
+  "author": "Apostrophe Technologies, Inc.",
   "license": "MIT",
   "dependencies": {
     "acorn": "^7.1.0",
