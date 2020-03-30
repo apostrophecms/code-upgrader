@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       - image: circleci/node:12-browsers
-      - image: latest
+      - image: mongo:latest
     steps:
       - checkout
       - run:
