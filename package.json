@@ -1,16 +1,25 @@
 {
   "name": "apostrophe-3-upgrade-tools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx eslint ."
   },
-  "author": "",
+  "author": "Apostrophe Technologies, Inc.",
   "license": "MIT",
   "dependencies": {
     "acorn": "^7.1.0",
     "boring": "^1.0.0",
     "escodegen": "^1.11.1"
+  },
+  "devDependencies": {
+    "eslint": "^6.0.0",
+    "eslint-config-apostrophe": "^3.1.0",
+    "eslint-config-standard": "^11.0.0-beta.0",
+    "eslint-plugin-import": "^2.16.0",
+    "eslint-plugin-node": "^5.2.1",
+    "eslint-plugin-promise": "^3.6.0",
+    "eslint-plugin-standard": "^3.0.1"
   }
 }

@@ -20,7 +20,12 @@ function processModule(moduleName) {
   let helpers;
   const comments = [];
   const tokens = [];
-  let parsed = acorn.parse(code, { ranges: true, locations: true, onComment: comments, onToken: tokens });
+  let parsed = acorn.parse(code, {
+    ranges: true,
+    locations: true,
+    onComment: comments,
+    onToken: tokens
+  });
   parsed = escodegen.attachComments(parsed, comments, tokens);
   const prologue = [];
   let methods = [];
@@ -261,8 +266,8 @@ function processModule(moduleName) {
   for (const item of moveMethodsToHandlers) {
     const method = methods.find(method => method.name === item[1]);
     handlers[item[0]][item[1]] = method.statement.expression.right;
-  //  handlers[item[0]][item[1]].comments = method.comments;
-   // console.log(handlers[item[0]][item[1]].comments );
+    // handlers[item[0]][item[1]].comments = method.comments;
+    // console.log(handlers[item[0]][item[1]].comments );
     methods = methods.filter(method => method.name !== item[1]);
   }
 
@@ -311,7 +316,7 @@ function processModule(moduleName) {
                           name: name
                         },
                         value: handlers[eventName][name],
-  //                      leadingComments: handlers[eventName][name].comments,
+                        // leadingComments: handlers[eventName][name].comments,
                         method: true
                       }))
                     }
@@ -408,8 +413,9 @@ function processModule(moduleName) {
             return;
           }
         } else if ((statement.expression.type === 'CallExpression') && (get(statement, 'expression.callee.callee.name') === 'require')) {
-          const arguments = get(statement, 'expression.arguments');
-          if ((arguments.length === 2) && (arguments[0].name === 'self') && (arguments[1].name === 'options')) {
+          const args = get(statement, 'expression.arguments');
+          if ((args.length === 2) && (args[0].name === 'self') &&
+            (args[1].name === 'options')) {
             const path = get(statement, 'expression.callee.arguments.0.value');
             // recurse into path
             let fsPath = require('path').resolve(require('path').dirname(moduleName), path);
@@ -420,7 +426,12 @@ function processModule(moduleName) {
             const code = require('fs').readFileSync(fsPath, 'utf8');
             const comments = [];
             const tokens = [];
-            let parsed = acorn.parse(code, { locations: true, ranges: true, onToken: tokens, onComment: comments });
+            let parsed = acorn.parse(code, {
+              locations: true,
+              ranges: true,
+              onToken: tokens,
+              onComment: comments
+            });
             parsed = escodegen.attachComments(parsed, comments, tokens);
             parsed.body.forEach(statement => {
               if (
@@ -458,8 +469,10 @@ function processModule(moduleName) {
     if (o == null) {
       return null;
     }
-    clauses = s.split(/\./);
-    for (c of clauses) {
+
+    const clauses = s.split(/\./);
+
+    for (const c of clauses) {
       if (o[c] == null) {
         return null;
       }
@@ -472,7 +485,7 @@ function processModule(moduleName) {
     if (fns.length === 1) {
       // Methods are not arrow functions
       fns[0].type = 'FunctionExpression';
-      return fns[0];  
+      return fns[0];
     } else {
       return {
         type: 'ArrayExpression',
@@ -556,17 +569,18 @@ function processModule(moduleName) {
       }
       return false;
     } else if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'addHelpers')) {
-      const arguments = get(init, 'expression.arguments');
-      if (arguments[0].type === 'ObjectExpression') {
-        helpers = arguments[0];
+      const args = get(init, 'expression.arguments');
+
+      if (args[0].type === 'ObjectExpression') {
+        helpers = args[0];
         return true;
       } else if (
-        (get(arguments[0], 'callee.object.name') === '_') &&
-        (get(arguments[0], 'callee.property.name') === 'pick')
+        (get(args[0], 'callee.object.name') === '_') &&
+        (get(args[0], 'callee.property.name') === 'pick')
       ) {
         helpers = {
           type: 'ArrayExpression',
-          elements: arguments[0].arguments.slice(1)
+          elements: args[0].arguments.slice(1)
         };
         return true;
       }
@@ -575,25 +589,25 @@ function processModule(moduleName) {
 
   function onEvent(init) {
     if ((get(init, 'type') === 'ExpressionStatement') && (get(init, 'expression.type') === 'CallExpression') && (get(init, 'expression.callee.object.name') === 'self') && (get(init, 'expression.callee.property.name') === 'on')) {
-      const arguments = get(init, 'expression.arguments');
-      if ((arguments[0].type !== 'Literal') || (arguments[1].type !== 'Literal')) {
+      const args = get(init, 'expression.arguments');
+      if ((args[0].type !== 'Literal') || (args[1].type !== 'Literal')) {
         return false;
       }
-      if (!arguments[2]) {
-        const fullEventName = arguments[0].value;
-        const handlerName = arguments[1].value;
+      if (!args[2]) {
+        const fullEventName = args[0].value;
+        const handlerName = args[1].value;
         handlers[fullEventName] = handlers[fullEventName] || {};
         moveMethodsToHandlers.push([ fullEventName, handlerName ]);
         return true;
-      } else if ((arguments[2].type !== 'FunctionExpression') && (arguments[2].type !== 'ArrowFunctionExpression')) {
+      } else if ((args[2].type !== 'FunctionExpression') && (arguments[2].type !== 'ArrowFunctionExpression')) {
         return false;
       }
-      arguments[2].type = 'FunctionExpression';
-      const fullEventName = arguments[0].value;
-      const handlerName = arguments[1].value;
-      const handler = arguments[2];
+      args[2].type = 'FunctionExpression';
+      const fullEventName = args[0].value;
+      const handlerName = args[1].value;
+      const handler = args[2];
       handlers[fullEventName] = handlers[fullEventName] || {};
-      handlers[fullEventName][handlerName] = handler;    
+      handlers[fullEventName][handlerName] = handler;
       return true;
     }
   }
@@ -610,10 +624,10 @@ function processModule(moduleName) {
   function protectBlankLines(code) {
     const lines = code.split('\n');
     const replacedLines = lines.map(line => {
-        if (line.length === 0 || /^\s+$/.test(line)) {
-          return blankLineMarker;
-        }
-        return line;
+      if (line.length === 0 || /^\s+$/.test(line)) {
+        return blankLineMarker;
+      }
+      return line;
     });
     return replacedLines.join('\n').replace(/\n +\n/g, '\n\n');
   }
@@ -631,7 +645,7 @@ function processModule(moduleName) {
         type: 'Property',
         key: {
           type: 'Identifier',
-          name: 'helpers',
+          name: 'helpers'
         },
         value: helpers
       });
@@ -640,7 +654,7 @@ function processModule(moduleName) {
         type: 'Property',
         key: {
           type: 'Identifier',
-          name: 'helpers',
+          name: 'helpers'
         },
         value: {
           type: 'FunctionExpression',
@@ -727,4 +741,3 @@ function processModule(moduleName) {
     }
   }
 }
-

@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/apostrophecms/apostrophe-3-upgrade-tools/tree/master.svg?style=svg)](https://circleci.com/gh/apostrophecms/apostrophe-3-upgrade-tools/tree/master)
+
 NOT ready for use.
 
 When it is, usage will look like:
