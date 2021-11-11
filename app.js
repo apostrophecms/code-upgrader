@@ -599,7 +599,7 @@ function processModule(moduleName) {
         handlers[fullEventName] = handlers[fullEventName] || {};
         moveMethodsToHandlers.push([ fullEventName, handlerName ]);
         return true;
-      } else if ((args[2].type !== 'FunctionExpression') && (arguments[2].type !== 'ArrowFunctionExpression')) {
+      } else if ((args[2].type !== 'FunctionExpression') && (args[2].type !== 'ArrowFunctionExpression')) {
         return false;
       }
       args[2].type = 'FunctionExpression';
