@@ -354,13 +354,19 @@ function processModule(moduleName) {
     if (get(declaration, 'init.callee.name') !== 'require') {
       return true;
     }
-    const varName = get(declaration, 'id.name');
+    let varName;
+    if (get(declaration, 'id.type') === 'ObjectPattern') {
+      // const { foo, bar } = require('baz')
+      varName = get(declaration, 'id.properties').map(property => get(property, 'key.name')).join(':');
+    } else {
+      // const bar = require('baz')
+      varName = get(declaration, 'id.name');
+    }
     const args = get(declaration, 'init.arguments');
     const arg = args && (args.length === 1) && args[0];
     if (!arg) {
       return true;
     }
-
     if (required[varName]) {
       // Duplicate stomped
       return false;
