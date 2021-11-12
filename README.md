@@ -2,15 +2,20 @@
 
 NOT ready for use.
 
-When it is, usage will look like:
+Current test procedure:
 
-```
-cd lib/modules/whatever
-apostrophe-3-upgrade-module index.js
-```
+* `git clone` this module
+* `npm install`
+* `cd` to your project
+* make sure `git status` is clean
+* make a **new branch** for the migration
+* make sure you are cd'd into your project
+* `~/apostrophecms/apostrophe-3-upgrade-tools .`
+* Check out `git status`
+* **To undo everything and try again:** `git reset --hard && git clean -df`
 
-That will *replace* `index.js` with a new version, which will also contain, inlined, the content of any files pulled in with the `require('./lib/something')(self, options)` pattern. Those files are removed.
+This tool will refuse to start if it does not see a git repository for the project. Please do not use this tool without appropriate version control to avoid losing 2.x project code.
 
-This may sound scary, and indeed it is imperfect and you may have changes to make. However, that is why we have `git`. You can review the changes as a PR in github, or via `git diff`. Just make sure you work in a new git branch when using this tool.
+This will rename `lib/modules` to `modules`, update every `index.js` file and make many other changes, including inlining the content of any files pulled in with the `require('./lib/something')(self, options)` pattern. Those files are removed.
 
-(If you are not using git for version control, we recommend that you start. If you're not going to start, we don't recommend using the upgrade tool.)
+This may sound scary, and indeed it is imperfect and you may have changes to make. However, that is why we have `git`. You can review the changes as a PR in github, or via `git diff HEAD`. Just make sure you work in a new git branch when using this tool.

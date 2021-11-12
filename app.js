@@ -1,22 +1,61 @@
 const fs = require('fs');
+const path = require('path');
 const acorn = require('acorn');
 const escodegen = require('escodegen');
 const argv = require('boring')();
+const cp = require('child_process');
+const { stripIndent } = require('common-tags');
 
 // This is a random identifier not used anywhere else
 const blankLineMarker = "// X0k7FEu5a6!bC6mV";
 
-const moduleNames = argv._;
+try {
+  cp.execSync('git status', { encoding: 'utf8' });
+} catch (e) {
+  fail(stripIndent`
+    This project does not appear to be using git. For your protection and to simplify
+    certain operations this tool can only be used in a git repository.
+  `);
+}
 
-for (const module of moduleNames) {
-  processModule(module);
+if (isSingleSiteProject()) {
+  let moduleNames = fs.readdirSync('lib/modules');
+  moduleNames.forEach(name => {
+    rename(`lib/modules/${name}`, `modules/${name}`);
+  });
+  fs.rmdirSync('lib/modules');
+  moduleNames = fs.readdirSync('modules');
+  moduleNames.forEach(processModule);
+} else if (isSingleNpmModule()) {
+  const moduleName = process.cwd();
+  processModule(moduleName);
+} else if (isMoogBundle()) {
+  throw new Error('TODO: implement moog bundle migration');
+} else {
+  fail(stripIndent`
+    The current directory does not look like a single-site apostrophe project,
+    an Apostrophe module packaged as an npm module, or a bundle of Apostrophe modules
+    packaged as an npm module. Not sure what to do.
+  `);
 }
 
 function processModule(moduleName) {
-  if (!moduleName.match(/\.js$/)) {
-    moduleName = moduleName + '/index.js';
+  let moduleFilename = `modules/${moduleName}/index.js`;
+  if (!fs.existsSync(moduleFilename)) {
+    // Not all project level modules have an index.js file, but
+    // always create at least a minimal index.js file to
+    // avoid problems if anything must be hoisted there
+    // from a template, etc.
+    fs.writeFileSync(moduleFilename, 'module.exports = {};\n');
   }
-  const code = protectBlankLines(require('fs').readFileSync(moduleName, 'utf8'));
+  const newModuleName = filterModuleName(moduleName);
+  if (newModuleName !== moduleName) {
+    const newModuleFilename = moduleFilename.replace(`${moduleName}/index.js`, `${newModuleName}/index.js`);
+    // Rename the module folder, the index.js part doesn't change
+    rename(path.dirname(moduleFilename), path.dirname(newModuleFilename));
+    moduleFilename = newModuleFilename;
+  }
+  const code = protectBlankLines(require('fs').readFileSync(moduleFilename, 'utf8'));
   let helpers;
   const comments = [];
   const tokens = [];
@@ -400,7 +439,7 @@ function processModule(moduleName) {
     comment: true
   }));
 
-  fs.writeFileSync(moduleName, generated);
+  fs.writeFileSync(moduleFilename, generated);
 
   importedPaths.map(fs.unlinkSync);
 
@@ -422,9 +461,9 @@ function processModule(moduleName) {
           const args = get(statement, 'expression.arguments');
           if ((args.length === 2) && (args[0].name === 'self') &&
             (args[1].name === 'options')) {
-            const path = get(statement, 'expression.callee.arguments.0.value');
+            const _path = get(statement, 'expression.callee.arguments.0.value');
             // recurse into path
-            let fsPath = require('path').resolve(require('path').dirname(moduleName), path);
+            let fsPath = path.resolve(path.dirname(moduleFilename), _path);
             if (!fsPath.match(/\.js$/)) {
               fsPath += '.js';
             }
@@ -746,4 +785,90 @@ function processModule(moduleName) {
       });
     }
   }
+}
+
+function filterModuleName(name) {
+  const map = {
+    'apostrophe-utils': '@apostrophecms/util',
+    'apostrophe-tasks': '@apostrophecms/task',
+    'apostrophe-launder': '@apostrophecms/launder',
+    'apostrophe-i18n': '@apostrophecms/i18n',
+    'apostrophe-db': '@apostrophecms/db',
+    'apostrophe-locks': '@apostrophecms/lock',
+    // TODO linter: also requires a change of approach
+    'apostrophe-caches': '@apostrophecms/cache',
+    'apostrophe-migrations': '@apostrophecms/migration',
+    'apostrophe-express': '@apostrophecms/express',
+    'apostrophe-urls': '@apostrophecms/url',
+    'apostrophe-templates': '@apostrophecms/template',
+    'apostrophe-email': '@apostrophecms/email',
+    'apostrophe-push': '@apostrophecms/push',
+    'apostrophe-permissions': '@apostrophecms/permission',
+    'apostrophe-assets': '@apostrophecms/asset',
+    'apostrophe-admin-bar': '@apostrophecms/admin-bar',
+    'apostrophe-login': '@apostrophecms/login',
+    'apostrophe-notifications': '@apostrophecms/notification',
+    'apostrophe-schemas': '@apostrophecms/schema',
+    'apostrophe-docs': '@apostrophecms/doc',
+    'apostrophe-jobs': '@apostrophecms/job',
+    'apostrophe-attachments': '@apostrophecms/attachment',
+    'apostrophe-oembed': '@apostrophecms/oembed',
+    'apostrophe-pager': '@apostrophecms/pager',
+    'apostrophe-global': '@apostrophecms/global',
+    'apostrophe-polymorphic-manager': '@apostrophecms/polymorphic-type',
+    'apostrophe-pages': '@apostrophecms/page',
+    'apostrophe-search': '@apostrophecms/search',
+    'apostrophe-any-page-manager': '@apostrophecms/any-page-type',
+    'apostrophe-areas': '@apostrophecms/area',
+    'apostrophe-rich-text-widgets': '@apostrophecms/rich-text-widget',
+    'apostrophe-html-widgets': '@apostrophecms/html-widget',
+    'apostrophe-video-widgets': '@apostrophecms/video-widget',
+    // TODO flag apostrophe-groups as an area for an enterprise conversation
+    'apostrophe-users': '@apostrophecms/user',
+    'apostrophe-images': '@apostrophecms/image',
+    // TODO linter must flag potential loss of content here as the old
+    // widget was a slideshow and the new one only handles one image
+    // (our content migrator also tries to figure this out)
+    'apostrophe-images-widgets': '@apostrophecms/image-widget',
+    'apostrophe-files': '@apostrophecms/file',
+    'apostrophe-module': '@apostrophecms/module',
+    'apostrophe-widgets': '@apostrophecms/widget-type',
+    'apostrophe-custom-pages': '@apostrophecms/page-type',
+    'apostrophe-pieces': '@apostrophecms/piece-type',
+    'apostrophe-pieces-pages': '@apostrophecms/piece-page-type',
+    // TODO linter must flag apostrophe-pieces-widgets or reinvent it
+    'apostrophe-doc-type-manager': '@apostrophecms/doc-type'
+  };
+  return map[name] || name;
+}
+
+function rename(oldpath, newpath) {
+  fs.mkdirSync(path.dirname(newpath), {
+    recursive: true
+  });
+  // Use git mv so that git status is less confusing
+  // and "git checkout ." knows what to do if used
+  const result = cp.spawnSync('git', [ 'mv', `./${oldpath}`, `./${newpath}` ], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw result.stderr;
+  }
+}
+
+function isSingleSiteProject() {
+  return fs.existsSync('app.js') && fs.existsSync('lib/modules');
+}
+
+function isSingleNpmModule() {
+  // There is no way to be absolutely sure it isn't some unrelated
+  // kind of npm module, but this is a good sanity check
+  return fs.existsSync('package.json') && fs.existsSync('index.js') && !fs.readFileSync('index.js', 'utf8').includes('moogBundle');
+}
+
+function isMoogBundle() {
+  return fs.existsSync('package.json') && fs.existsSync('index.js') && fs.readFileSync('index.js', 'utf8').includes('moogBundle');
+}
+
+function fail(s) {
+  console.error(s);
+  process.exit(1);
 }
