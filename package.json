@@ -12,7 +12,7 @@
     "acorn": "^8.0.0",
     "boring": "^1.0.0",
     "common-tags": "^1.8.1",
-    "escodegen": "^1.11.1"
+    "escodegen": "^2.0.0"
   },
   "devDependencies": {
     "eslint": "^6.0.0",

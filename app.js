@@ -40,6 +40,7 @@ if (isSingleSiteProject()) {
 }
 
 function processModule(moduleName) {
+  console.log(`> ${moduleName}`);
   let moduleFilename = `modules/${moduleName}/index.js`;
   if (!fs.existsSync(moduleFilename)) {
     // Not all project level modules have an index.js file, but
@@ -59,12 +60,14 @@ function processModule(moduleName) {
   let helpers;
   const comments = [];
   const tokens = [];
+  console.log('parsing');
   let parsed = acorn.parse(code, {
     ranges: true,
     locations: true,
     onComment: comments,
     onToken: tokens
   });
+  console.log('parsed');
   parsed = escodegen.attachComments(parsed, comments, tokens);
   const prologue = [];
   let methods = [];
@@ -130,27 +133,31 @@ function processModule(moduleName) {
               type: 'ObjectExpression',
               properties: []
             };
-            if (value.type !== 'ArrayExpression') {
-              fields.add.properties.push({
-                type: 'SpreadProperty',
-                value: invokeHelper('aposFieldArrayToFieldObject', value)
-              });
-            } else {
+            if (value.type === 'ArrayExpression') {
               for (const element of value.elements) {
                 if (element.type === 'ObjectExpression') {
                   const name = element.properties.find(property =>
                     (get(property, 'key.name') === 'name') &&
                     (get(property, 'key.type') === 'Identifier')
                   );
-                  add.properties.push({
+                  const fieldProperty = {
                     type: 'Property',
                     key: {
                       type: 'Identifier',
-                      name: name.value.value
+                      computed: (name.value.type !== 'Identifier'),
+                      name: (name.value.type === 'Identifier') ? name.value.value : name.value
                     },
-                    value: element.properties.filter(property => property !== name)
-                  });
-                } else if (element.type === 'SpreadElement') {
+                    value: {
+                      type: 'ObjectExpression',
+                      properties: element.properties.filter(property => property !== name)
+                    }
+                  };
+                  console.log('===>', JSON.stringify(fieldProperty, null, '  '));
+                  add.properties.push(fieldProperty);
+                } else {
+                  console.error(`addFields: cannot convert ${element.type}`);
+                }
+                // } else if (element.type === 'SpreadElement') {
                   // TODO
                   // add.properties.push({
                   //   type: 'SpreadProperty',
@@ -159,8 +166,13 @@ function processModule(moduleName) {
 
                   //   }
                   // })
-                }
+                // }
               }
+            } else {
+              // fields.add.properties.push({
+              //   type: 'SpreadProperty',
+              //   value: invokeHelper('aposFieldArrayToFieldObject', value)
+              // });
             }
             fields.value.properties.push(add);
           } else {
@@ -945,7 +957,6 @@ function fail(s) {
 }
 
 function inspect(o) {
-  console.log(o);
   require('util').inspect(o, { depth: 20 });
 }
 
