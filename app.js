@@ -72,9 +72,11 @@ function processModule(moduleName) {
   let lateInits = [];
   let adjusts = [];
   const options = [];
+  const newModuleBodyProperties = [];
   const routes = {};
   const superCaptures = {};
   const moveMethodsToHandlers = [];
+  let fields;
   const specials = {
     'extend': true,
     'improve': true,
@@ -121,7 +123,49 @@ function processModule(moduleName) {
           const special = (specials[name] === true) ? name : specials[name];
           specialsFound[special] = get(property, 'value');
         } else {
-          options[name] = get(property, 'value');
+          const value = get(property, 'value');
+          if (name === 'addFields') {
+            fields = ensureFields();
+            const add = {
+              type: 'ObjectExpression',
+              properties: []
+            };
+            if (value.type !== 'ArrayExpression') {
+              fields.add.properties.push({
+                type: 'SpreadProperty',
+                value: invokeHelper('aposFieldArrayToFieldObject', value)
+              });
+            } else {
+              for (const element of value.elements) {
+                if (element.type === 'ObjectExpression') {
+                  const name = element.properties.find(property =>
+                    (get(property, 'key.name') === 'name') &&
+                    (get(property, 'key.type') === 'Identifier')
+                  );
+                  add.properties.push({
+                    type: 'Property',
+                    key: {
+                      type: 'Identifier',
+                      name: name.value.value
+                    },
+                    value: element.properties.filter(property => property !== name)
+                  });
+                } else if (element.type === 'SpreadElement') {
+                  // TODO
+                  // add.properties.push({
+                  //   type: 'SpreadProperty',
+                  //   value: {
+                  //     type: 'CallExpression',
+
+                  //   }
+                  // })
+                }
+              }
+            }
+            fields.value.properties.push(add);
+          } else {
+            options[name] = value;
+          }
         }
       });
     }
@@ -300,6 +344,7 @@ function processModule(moduleName) {
       },
       method: true
     });
+
   });
 
   for (const item of moveMethodsToHandlers) {
@@ -369,6 +414,8 @@ function processModule(moduleName) {
       method: true
     });
   }
+
+  moduleBody.properties = [ ...moduleBody.properties, ...newModuleBodyProperties ];
 
   outputMethods('methods', methods);
   outputMethods('extendMethods', extendMethods);
@@ -785,6 +832,30 @@ function processModule(moduleName) {
       });
     }
   }
+
+  function ensureFields() {
+    let fields = newModuleBodyProperties.find(property =>
+      (property.type === 'Identifier') &&
+      (get('key.name') === 'fields') &&
+      (get('key.type') === 'Identifier')
+    );
+    if (!fields) {
+      fields = {
+        type: 'Property',
+        key: {
+          type: 'Identifier',
+          name: 'fields'
+        },
+        value: {
+          type: 'ObjectExpression',
+          properties: []
+        }
+      };
+      newModuleBodyProperties.push(fields);
+    }
+    return fields;   
+  }
+
 }
 
 function filterModuleName(name) {
@@ -871,4 +942,33 @@ function isMoogBundle() {
 function fail(s) {
   console.error(s);
   process.exit(1);
+}
+
+function inspect(o) {
+  console.log(o);
+  require('util').inspect(o, { depth: 20 });
+}
+
+// Given a function name and an array of escodegen expressions as arguments,
+// returns an escodegen expression that invokes the named function
+// with the given arguments
+function invokeHelper(name, ...args) {
+  return {
+    "type": "ExpressionStatement",
+    "expression": {
+      "type": "CallExpression",
+      "callee": {
+        "type": "MemberExpression",
+        "object": {
+          "type": "Identifier",
+          "name": "a3MigrationHelpers"
+        },
+        "property": {
+          "type": "Identifier",
+          name
+        }
+      },
+      "arguments": args
+    }
+  };
 }
