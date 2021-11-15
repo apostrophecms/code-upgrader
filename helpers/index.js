@@ -10,7 +10,7 @@ module.exports = {
   // You should convert those yourself as soon as you are able
   // (hint: the spread operator is very helpful for merging
   // objects).
-  fieldArrayToFieldObject(fields) {
+  arrayOptionToObject(fields) {
     return Object.fromEntries(
       fields.map(field => (
         [
