@@ -40,7 +40,7 @@ if (isSingleSiteProject()) {
 }
 
 function processModule(moduleName) {
-  console.log(`> ${moduleName}`);
+  console.log(`Processing module: ${moduleName}`);
   let moduleFilename = `modules/${moduleName}/index.js`;
   if (!fs.existsSync(moduleFilename)) {
     // Not all project level modules have an index.js file, but
@@ -60,14 +60,12 @@ function processModule(moduleName) {
   let helpers;
   const comments = [];
   const tokens = [];
-  console.log('parsing');
   let parsed = acorn.parse(code, {
     ranges: true,
     locations: true,
     onComment: comments,
     onToken: tokens
   });
-  console.log('parsed');
   parsed = escodegen.attachComments(parsed, comments, tokens);
   const prologue = [];
   let methods = [];
@@ -130,30 +128,34 @@ function processModule(moduleName) {
           if (name === 'addFields') {
             fields = ensureFields();
             const add = {
-              type: 'ObjectExpression',
-              properties: []
+              type: 'Property',
+              key: {
+                type: 'Identifier',
+                name: 'add'
+              },
+              value: {
+                type: 'ObjectExpression',
+                properties: []
+              }
             };
             if (value.type === 'ArrayExpression') {
               for (const element of value.elements) {
                 if (element.type === 'ObjectExpression') {
                   const name = element.properties.find(property =>
                     (get(property, 'key.name') === 'name') &&
-                    (get(property, 'key.type') === 'Identifier')
-                  );
+                    (get(property, 'key.type') === 'Identifier') &&
+                    (!property.computed));
+                  const literalOrIdentifier = nameToLiteralOrIdentifier(name);
                   const fieldProperty = {
                     type: 'Property',
-                    key: {
-                      type: 'Identifier',
-                      computed: (name.value.type !== 'Identifier'),
-                      name: (name.value.type === 'Identifier') ? name.value.value : name.value
-                    },
+                    computed: !literalOrIdentifier,
+                    key: literalOrIdentifier || name.value,
                     value: {
                       type: 'ObjectExpression',
                       properties: element.properties.filter(property => property !== name)
                     }
                   };
-                  console.log('===>', JSON.stringify(fieldProperty, null, '  '));
-                  add.properties.push(fieldProperty);
+                  add.value.properties.push(fieldProperty);
                 } else {
                   console.error(`addFields: cannot convert ${element.type}`);
                 }
@@ -175,6 +177,69 @@ function processModule(moduleName) {
               // });
             }
             fields.value.properties.push(add);
+          } else if (name === 'removeFields') {
+            fields = ensureFields();
+            const remove = {
+              type: 'Property',
+              key: {
+                type: 'Identifier',
+                name: 'remove'
+              },
+              value
+            };
+            fields.value.properties.push(remove);
+          } else if (name === 'arrangeFields') {
+            fields = ensureFields();
+            const group = {
+              type: 'Property',
+              key: {
+                type: 'Identifier',
+                name: 'group'
+              },
+              value: {
+                type: 'ObjectExpression',
+                properties: []
+              }
+            };
+            if (value.type === 'ArrayExpression') {
+              for (const element of value.elements) {
+                if (element.type === 'ObjectExpression') {
+                  const name = element.properties.find(property =>
+                    (get(property, 'key.name') === 'name') &&
+                    (get(property, 'key.type') === 'Identifier') &&
+                    (!property.computed));
+                  const literalOrIdentifier = nameToLiteralOrIdentifier(name);
+                  const fieldProperty = {
+                    type: 'Property',
+                    computed: !literalOrIdentifier,
+                    key: literalOrIdentifier || name.value,
+                    value: {
+                      type: 'ObjectExpression',
+                      properties: element.properties.filter(property => property !== name)
+                    }
+                  };
+                  group.value.properties.push(fieldProperty);
+                } else {
+                  console.error(`arrangeFields: cannot convert ${element.type}`);
+                }
+                // } else if (element.type === 'SpreadElement') {
+                  // TODO
+                  // add.properties.push({
+                  //   type: 'SpreadProperty',
+                  //   value: {
+                  //     type: 'CallExpression',
+
+                  //   }
+                  // })
+                // }
+              }
+            } else {
+              // fields.add.properties.push({
+              //   type: 'SpreadProperty',
+              //   value: invokeHelper('aposFieldArrayToFieldObject', value)
+              // });
+            }
+            fields.value.properties.push(group);
           } else {
             options[name] = value;
           }
@@ -847,9 +912,8 @@ function processModule(moduleName) {
 
   function ensureFields() {
     let fields = newModuleBodyProperties.find(property =>
-      (property.type === 'Identifier') &&
-      (get('key.name') === 'fields') &&
-      (get('key.type') === 'Identifier')
+      (get(property, 'key.name') === 'fields') &&
+      (get(property, 'key.type') === 'Identifier')
     );
     if (!fields) {
       fields = {
@@ -982,4 +1046,26 @@ function invokeHelper(name, ...args) {
       "arguments": args
     }
   };
+}
+
+function nameToLiteralOrIdentifier(name) {
+  if (name.value.computed) {
+    return false;
+  }
+  if (name.value.type === 'Identifier') {
+    return name.value;
+  }
+  if (name.value.type === 'Literal') {
+    // Where possible convert to identifier
+    const text = name.value.value;
+    if (text.match(/^[a-zA-Z]\w*$/)) {
+      return {
+        type: 'Identifier',
+        name: text
+      };
+    } else {
+      return name.value;
+    }
+  }
+  return false;
 }
