@@ -9,7 +9,7 @@ const { stripIndent } = require('common-tags');
 // This is a random identifier not used anywhere else
 const blankLineMarker = "// X0k7FEu5a6!bC6mV";
 
-if (argv._[0] === 'undo') {
+if (argv._[0] === 'reset') {
   cp.execSync('git reset --hard && git clean -df');
   process.exit(0);
 }

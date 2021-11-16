@@ -13,7 +13,7 @@ Current test procedure:
 * Make a **new branch** called `3.0` in which to safely experiment with this tool
 * Type `apos-code-upgrader`
 * Afterwards, check out `git status`
-* **To undo everything and try again:** `apos-code-upgrader undo`
+* **To undo everything and try again:** `apos-code-upgrader reset`
 
 This tool will refuse to start if it does not see a git repository for the project. Please do not use this tool without appropriate version control to avoid losing 2.x project code.
 
