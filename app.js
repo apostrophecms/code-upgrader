@@ -147,6 +147,11 @@ function processModule(moduleName) {
     }
   });
 
+  if (!moduleBody) {
+    console.error(`⚠️ The module ${moduleName} has no module.export statement, ignoring it`);
+    return;
+  }
+
   parsed.body = prologue.concat(parsed.body);
 
   moduleBody.properties = [];
