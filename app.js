@@ -795,7 +795,9 @@ function filterModuleName(name) {
     'apostrophe-i18n': '@apostrophecms/i18n',
     'apostrophe-db': '@apostrophecms/db',
     'apostrophe-locks': '@apostrophecms/lock',
-    // TODO linter: also requires a change of approach
+    // TODO linter: we have to point out that the
+    // cache API has also changed, in ways we probably
+    // can't automatically rewrite
     'apostrophe-caches': '@apostrophecms/cache',
     'apostrophe-migrations': '@apostrophecms/migration',
     'apostrophe-express': '@apostrophecms/express',
