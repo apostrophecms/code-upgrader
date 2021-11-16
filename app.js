@@ -83,7 +83,8 @@ function processModule(moduleName) {
     ranges: true,
     locations: true,
     onComment: comments,
-    onToken: tokens
+    onToken: tokens,
+    ecmaVersion: 2020
   });
   parsed = escodegen.attachComments(parsed, comments, tokens);
   const prologue = [];
