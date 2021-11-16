@@ -4,13 +4,6 @@
     "node_modules/"
   ],
   "rules": {
-    "no-console": [
-      "warn",
-      {
-        "allow": [
-          "info"
-        ]
-      }
-    ]
+    "no-console": 0
   }
 }
