@@ -4,13 +4,13 @@ NOT ready for use.
 
 Current test procedure:
 
-* `git clone` this module
-* `npm install`
+* `git clone` this module in a separate location
+* `npm install` in the module's folder
 * Type `npm link` to make `apos-code-upgrader` globally available
-* `cd` to your project
-* make sure `git status` is clean
-* make a **new branch** for the migration
-* make sure you are cd'd into your project
+* In a separate location, `git clone` your existing A2 project from git
+* make sure you are `cd`'d into your project
+* make sure `git status` is clean in your project
+* Make a **new branch** called `3.0` in which to safely experiment with this tool
 * Type `apos-code-upgrader`
 * Afterwards, check out `git status`
 * **To undo everything and try again:** `git reset --hard && git clean -df`
