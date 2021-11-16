@@ -9,6 +9,11 @@ const { stripIndent } = require('common-tags');
 // This is a random identifier not used anywhere else
 const blankLineMarker = "// X0k7FEu5a6!bC6mV";
 
+if (argv._[0] === 'undo') {
+  cp.execSync('git reset --hard && git clean -df');
+  process.exit(0);
+}
+
 try {
   cp.execSync('git status', { encoding: 'utf8' });
 } catch (e) {
@@ -19,11 +24,26 @@ try {
 }
 
 if (isSingleSiteProject()) {
-  let moduleNames = fs.readdirSync('lib/modules');
+  // Only touch directories, don't mess about with regular files in lib/modules (WTF)
+  // or symlinks in lib/modules (double WTF, but outside our remit)
+  let moduleNames = fs.readdirSync('lib/modules').filter(moduleName => fs.lstatSync(`lib/modules/${moduleName}`).isDirectory());
   moduleNames.forEach(name => {
     rename(`lib/modules/${name}`, `modules/${name}`);
   });
-  fs.rmdirSync('lib/modules');
+  try {
+    fs.rmdirSync('lib/modules');
+  } catch (e) {
+    if (e.code === 'ENOTEMPTY') {
+      console.error(stripIndent`
+        "lib/modules" is not empty after moving modules to "modules". You probably
+        have files that are not apostrophe modules in that folder. Please
+        move those files to a more appropriate location, like lib, then
+        remove "lib/modules" yourself.
+      `);
+    } else {
+      throw e;
+    }
+  }
   moduleNames = fs.readdirSync('modules');
   moduleNames.forEach(processModule);
 } else if (isSingleNpmModule()) {
