@@ -60,7 +60,6 @@ if (isSingleSiteProject()) {
 }
 
 function processModule(moduleName) {
-  console.log(`Processing module: ${moduleName}`);
   let moduleFilename = `modules/${moduleName}/index.js`;
   if (!fs.existsSync(moduleFilename)) {
     // Not all project level modules have an index.js file, but
