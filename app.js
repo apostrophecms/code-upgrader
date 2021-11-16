@@ -461,9 +461,9 @@ function processModule(moduleName) {
           const args = get(statement, 'expression.arguments');
           if ((args.length === 2) && (args[0].name === 'self') &&
             (args[1].name === 'options')) {
-            const _path = get(statement, 'expression.callee.arguments.0.value');
+            const requirePath = get(statement, 'expression.callee.arguments.0.value');
             // recurse into path
-            let fsPath = path.resolve(path.dirname(moduleFilename), _path);
+            let fsPath = path.resolve(path.dirname(moduleFilename), requirePath);
             if (!fsPath.match(/\.js$/)) {
               fsPath += '.js';
             }
