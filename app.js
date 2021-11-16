@@ -7,7 +7,7 @@ const cp = require('child_process');
 const { stripIndent } = require('common-tags');
 
 // This is a random identifier not used anywhere else
-const blankLineMarker = "// X0k7FEu5a6!bC6mV";
+const blankLineMarker = '// X0k7FEu5a6!bC6mV';
 
 if (argv._[0] === 'reset') {
   cp.execSync('git reset --hard && git clean -df');
@@ -88,7 +88,7 @@ function processModule(moduleName) {
   parsed = escodegen.attachComments(parsed, comments, tokens);
   const prologue = [];
   let methods = [];
-  let earlyInits = [];
+  const earlyInits = [];
   let lateInits = [];
   let adjusts = [];
   const options = [];
@@ -96,12 +96,12 @@ function processModule(moduleName) {
   const superCaptures = {};
   const moveMethodsToHandlers = [];
   const specials = {
-    'extend': true,
-    'improve': true,
+    extend: true,
+    improve: true,
     // A "special" because it already works exactly the
     // way we want it to in 2.x, i.e. leave it alone please
-    'customTags': true,
-    'moogBundle': 'bundle'
+    customTags: true,
+    moogBundle: 'bundle'
   };
   const importedPaths = [];
 
@@ -221,12 +221,12 @@ function processModule(moduleName) {
         type: 'FunctionExpression',
         params: [
           {
-            'type': 'Identifier',
-            'name': 'self'
+            type: 'Identifier',
+            name: 'self'
           },
           {
-            'type': 'Identifier',
-            'name': 'options'
+            type: 'Identifier',
+            name: 'options'
           }
         ],
         body: {
@@ -249,12 +249,12 @@ function processModule(moduleName) {
         type: 'FunctionExpression',
         params: [
           {
-            'type': 'Identifier',
-            'name': 'self'
+            type: 'Identifier',
+            name: 'self'
           },
           {
-            'type': 'Identifier',
-            'name': 'options'
+            type: 'Identifier',
+            name: 'options'
           }
         ],
         body: {
@@ -276,14 +276,14 @@ function processModule(moduleName) {
       },
       value: {
         type: 'FunctionExpression',
-        "params": [
+        params: [
           {
-            "type": "Identifier",
-            "name": "self"
+            type: 'Identifier',
+            name: 'self'
           },
           {
-            "type": "Identifier",
-            "name": "options"
+            type: 'Identifier',
+            name: 'options'
           }
         ],
         body: {
@@ -347,14 +347,14 @@ function processModule(moduleName) {
       },
       value: {
         type: 'FunctionExpression',
-        "params": [
+        params: [
           {
-            "type": "Identifier",
-            "name": "self"
+            type: 'Identifier',
+            name: 'self'
           },
           {
-            "type": "Identifier",
-            "name": "options"
+            type: 'Identifier',
+            name: 'options'
           }
         ],
         body: {
@@ -368,8 +368,8 @@ function processModule(moduleName) {
                   return {
                     type: 'Property',
                     key: {
-                      "type": "Literal",
-                      "value": eventName
+                      type: 'Literal',
+                      value: eventName
                     },
                     value: {
                       type: 'ObjectExpression',
@@ -570,7 +570,7 @@ function processModule(moduleName) {
     let n = '';
     let nextUp = false;
     for (i = 0; (i < s.length); i++) {
-      let c = s.charAt(i);
+      const c = s.charAt(i);
       // If the next character is already uppercase, preserve that, unless
       // it is the first character
       if ((i > 0) && c.match(/[A-Z]/)) {
@@ -616,7 +616,7 @@ function processModule(moduleName) {
       if (!(method && name)) {
         return false;
       }
-      let fns = args.slice(2);
+      const fns = args.slice(2);
       fns[0].leadingComments = init.leadingComments;
       routes[type] = routes[type] || {};
       routes[type][method] = routes[type][method] || {};
@@ -728,14 +728,14 @@ function processModule(moduleName) {
         },
         value: {
           type: 'FunctionExpression',
-          "params": [
+          params: [
             {
-              "type": "Identifier",
-              "name": "self"
+              type: 'Identifier',
+              name: 'self'
             },
             {
-              "type": "Identifier",
-              "name": "options"
+              type: 'Identifier',
+              name: 'options'
             }
           ],
           body: {
@@ -763,14 +763,14 @@ function processModule(moduleName) {
         },
         value: {
           type: 'FunctionExpression',
-          "params": [
+          params: [
             {
-              "type": "Identifier",
-              "name": "self"
+              type: 'Identifier',
+              name: 'self'
             },
             {
-              "type": "Identifier",
-              "name": "options"
+              type: 'Identifier',
+              name: 'options'
             }
           ],
           body: {
