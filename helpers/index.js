@@ -7,17 +7,13 @@
 module.exports = {
   // Invoked by converted code when schema field arrays are defined
   // somewhere other than directly in the addFields option.
-  // You should convert those yourself as soon as you are able
-  // (hint: the spread operator is very helpful for merging
-  // objects).
+  // You should update your code to avoid the need for this function ASAP.
   arrayOptionToObject(fields) {
     return Object.fromEntries(
-      fields.map(field => (
-        [
-          field.name,
-          field
-        ]
-      ))
+      fields.map(field => {
+        const withoutName = Object.fromEntries(Object.entries(field).filter(([ name, value ]) => name !== 'name'));
+        return [ field.name, withoutName ];
+      })
     );
   }
 };
