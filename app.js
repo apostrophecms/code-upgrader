@@ -8,6 +8,14 @@ const { stripIndent } = require('common-tags');
 
 // This is a random identifier not used anywhere else
 const blankLineMarker = '// X0k7FEu5a6!bC6mV';
+<<<<<<< HEAD
+=======
+
+if (argv._[0] === 'reset') {
+  cp.execSync('git reset --hard && git clean -df');
+  process.exit(0);
+}
+>>>>>>> main
 
 try {
   cp.execSync('git status', { encoding: 'utf8' });
@@ -19,11 +27,26 @@ try {
 }
 
 if (isSingleSiteProject()) {
-  let moduleNames = fs.readdirSync('lib/modules');
+  // Only touch directories, don't mess about with regular files in lib/modules (WTF)
+  // or symlinks in lib/modules (double WTF, but outside our remit)
+  let moduleNames = fs.readdirSync('lib/modules').filter(moduleName => fs.lstatSync(`lib/modules/${moduleName}`).isDirectory());
   moduleNames.forEach(name => {
     rename(`lib/modules/${name}`, `modules/${name}`);
   });
-  fs.rmdirSync('lib/modules');
+  try {
+    fs.rmdirSync('lib/modules');
+  } catch (e) {
+    if (e.code === 'ENOTEMPTY') {
+      console.error(stripIndent`
+        "lib/modules" is not empty after moving modules to "modules". You probably
+        have files that are not apostrophe modules in that folder. Please
+        move those files to a more appropriate location, like lib, then
+        remove "lib/modules" yourself.
+      `);
+    } else {
+      throw e;
+    }
+  }
   moduleNames = fs.readdirSync('modules');
   moduleNames.forEach(processModule);
 } else if (isSingleNpmModule()) {
@@ -146,6 +169,11 @@ function processModule(moduleName) {
       });
     }
   });
+
+  if (!moduleBody) {
+    console.error(`⚠️ The module ${moduleName} has no module.export statement, ignoring it`);
+    return;
+  }
 
   parsed.body = prologue.concat(parsed.body);
 
@@ -484,9 +512,9 @@ function processModule(moduleName) {
           const args = get(statement, 'expression.arguments');
           if ((args.length === 2) && (args[0].name === 'self') &&
             (args[1].name === 'options')) {
-            const _path = get(statement, 'expression.callee.arguments.0.value');
+            const requirePath = get(statement, 'expression.callee.arguments.0.value');
             // recurse into path
-            let fsPath = path.resolve(path.dirname(moduleFilename), _path);
+            let fsPath = path.resolve(path.dirname(moduleFilename), requirePath);
             if (!fsPath.match(/\.js$/)) {
               fsPath += '.js';
             }
@@ -947,7 +975,9 @@ function filterModuleName(name) {
     'apostrophe-i18n': '@apostrophecms/i18n',
     'apostrophe-db': '@apostrophecms/db',
     'apostrophe-locks': '@apostrophecms/lock',
-    // TODO linter: also requires a change of approach
+    // TODO linter: we have to point out that the
+    // cache API has also changed, in ways we probably
+    // can't automatically rewrite
     'apostrophe-caches': '@apostrophecms/cache',
     'apostrophe-migrations': '@apostrophecms/migration',
     'apostrophe-express': '@apostrophecms/express',
