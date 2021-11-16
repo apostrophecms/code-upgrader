@@ -1,8 +1,8 @@
 {
-  "name": "apostrophe-3-upgrade-tools",
+  "name": "@apostrophecms/code-upgrader",
   "version": "1.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "test": "npx eslint ."
   },
@@ -11,6 +11,7 @@
   "dependencies": {
     "acorn": "^7.1.0",
     "boring": "^1.0.0",
+    "common-tags": "^1.8.1",
     "escodegen": "^1.11.1"
   },
   "devDependencies": {
@@ -21,5 +22,8 @@
     "eslint-plugin-node": "^5.2.1",
     "eslint-plugin-promise": "^3.6.0",
     "eslint-plugin-standard": "^3.0.1"
+  },
+  "bin": {
+    "apos-code-upgrader": "./bin/apos-code-upgrader"
   }
 }

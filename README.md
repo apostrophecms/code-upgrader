@@ -1,16 +1,22 @@
-[![CircleCI](https://circleci.com/gh/apostrophecms/apostrophe-3-upgrade-tools/tree/master.svg?style=svg)](https://circleci.com/gh/apostrophecms/apostrophe-3-upgrade-tools/tree/master)
+[![CircleCI](https://circleci.com/gh/apostrophecms/code-upgrader/tree/master.svg?style=svg)](https://circleci.com/gh/apostrophecms/code-upgrader/tree/master)
 
 NOT ready for use.
 
-When it is, usage will look like:
+Current test procedure:
 
-```
-cd lib/modules/whatever
-apostrophe-3-upgrade-module index.js
-```
+* `git clone` this module in a separate location
+* `npm install` in the module's folder
+* Type `npm link` to make `apos-code-upgrader` globally available
+* In a separate location, `git clone` your existing A2 project from git
+* make sure you are `cd`'d into your project
+* make sure `git status` is clean in your project
+* Make a **new branch** called `3.0` in which to safely experiment with this tool
+* Type `apos-code-upgrader`
+* Afterwards, check out `git status`
+* **To undo everything and try again:** `apos-code-upgrader reset`
 
-That will *replace* `index.js` with a new version, which will also contain, inlined, the content of any files pulled in with the `require('./lib/something')(self, options)` pattern. Those files are removed.
+This tool will refuse to start if it does not see a git repository for the project. Please do not use this tool without appropriate version control to avoid losing 2.x project code.
 
-This may sound scary, and indeed it is imperfect and you may have changes to make. However, that is why we have `git`. You can review the changes as a PR in github, or via `git diff`. Just make sure you work in a new git branch when using this tool.
+This will rename `lib/modules` to `modules`, update every `index.js` file and make many other changes, including inlining the content of any files pulled in with the `require('./lib/something')(self, options)` pattern. Those files are removed.
 
-(If you are not using git for version control, we recommend that you start. If you're not going to start, we don't recommend using the upgrade tool.)
+This may sound scary, and indeed it is imperfect and you may have changes to make. However, that is why we have `git`. You can review the changes as a PR in github, or via `git diff HEAD`. Just make sure you work in a new git branch when using this tool.
