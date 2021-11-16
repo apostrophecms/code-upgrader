@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/apostrophecms/apostrophe-3-upgrade-tools/tree/master.svg?style=svg)](https://circleci.com/gh/apostrophecms/apostrophe-3-upgrade-tools/tree/master)
+[![CircleCI](https://circleci.com/gh/apostrophecms/code-upgrader/tree/master.svg?style=svg)](https://circleci.com/gh/apostrophecms/code-upgrader/tree/master)
 
 NOT ready for use.
 
@@ -6,12 +6,13 @@ Current test procedure:
 
 * `git clone` this module
 * `npm install`
+* Type `npm link` to make `apos-code-upgrader` globally available
 * `cd` to your project
 * make sure `git status` is clean
 * make a **new branch** for the migration
 * make sure you are cd'd into your project
-* `~/apostrophecms/apostrophe-3-upgrade-tools .`
-* Check out `git status`
+* Type `apos-code-upgrader`
+* Afterwards, check out `git status`
 * **To undo everything and try again:** `git reset --hard && git clean -df`
 
 This tool will refuse to start if it does not see a git repository for the project. Please do not use this tool without appropriate version control to avoid losing 2.x project code.
