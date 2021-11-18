@@ -47,8 +47,7 @@ if (isSingleSiteProject()) {
   moduleNames = fs.readdirSync('modules');
   moduleNames.forEach(processModule);
 } else if (isSingleNpmModule()) {
-  const moduleName = process.cwd();
-  processModule(moduleName);
+  processStandaloneModule();
 } else if (isMoogBundle()) {
   throw new Error('TODO: implement moog bundle migration');
 } else {
@@ -59,8 +58,8 @@ if (isSingleSiteProject()) {
   `);
 }
 
-function processModule(moduleName) {
-  let moduleFilename = `modules/${moduleName}/index.js`;
+function processModuleInFolder(folder, moduleName) {
+  let moduleFilename = `${folder}/${moduleName}/index.js`;
   if (!fs.existsSync(moduleFilename)) {
     // Not all project level modules have an index.js file, but
     // always create at least a minimal index.js file to
@@ -69,12 +68,43 @@ function processModule(moduleName) {
     fs.writeFileSync(moduleFilename, 'module.exports = {};\n');
   }
   const newModuleName = filterModuleName(moduleName);
-  if (newModuleName !== moduleName) {
+  if (moduleName !== newModuleName) {
+    moduleFilename = rename(moduleName, newModuleName);
+  }
+  return processModule(moduleName, moduleFilename, { rename });
+
+  function rename(moduleName, newModuleName) {
     const newModuleFilename = moduleFilename.replace(`${moduleName}/index.js`, `${newModuleName}/index.js`);
     // Rename the module folder, the index.js part doesn't change
     rename(path.dirname(moduleFilename), path.dirname(newModuleFilename));
     moduleFilename = newModuleFilename;
+    return newModuleFilename;
   }
+}
+
+function processStandaloneModule() {
+  const folder = process.cwd();
+  const package = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  let main = package.main || 'index.js';
+  if (!main.endsWith('.js')) {
+    main += '.js';
+  }
+  const moduleName = package.name;
+  processModule(moduleName, main, {
+    rename(moduleName, newModuleName) {
+      console.trace(moduleName, newModuleName);
+      if (package.name.includes('@')) {
+        package.name = package.name.replace(`/${moduleName}`, newModuleName);
+      } else {
+        package.name = newModuleName;
+      }
+      lint('package.json', `This repository should be renamed ${newModuleName}`);
+      return main;
+    }
+  });
+}
+
+function processModule(moduleName, moduleFilename, { rename }) {
   const code = protectBlankLines(require('fs').readFileSync(moduleFilename, 'utf8'));
   let helpers;
   const comments = [];
@@ -87,6 +117,8 @@ function processModule(moduleName) {
     ecmaVersion: 2020
   });
   parsed = escodegen.attachComments(parsed, comments, tokens);
+  const staticRequirePaths = discoverStaticRequires({ filterDuplicates: true });
+  console.log('>>>', staticRequirePaths);
   const prologue = [];
   let methods = [];
   const earlyInits = [];
@@ -112,6 +144,7 @@ function processModule(moduleName) {
 
   let moduleBody;
   const handlers = {};
+  const staticRequires = {};
 
   parsed.body.forEach(statement => {
     if (
@@ -166,6 +199,16 @@ function processModule(moduleName) {
       });
     }
   });
+
+  // TODO also support detection of modules that extend a subclass of pieces,
+  // but this is nontrivial and relatively uncommon in projects being migrated
+
+  if (specialsFound.extend?.value === 'apostrophe-pieces') {
+    if (options.name.value !== moduleName) {
+      rename(moduleName, options.name.value);
+      moduleName = options.name;
+    }
+  }
 
   if (!moduleBody) {
     console.error(`⚠️ The module ${moduleName} has no module.export statement, ignoring it`);
@@ -359,6 +402,9 @@ function processModule(moduleName) {
   const extendMethods = methods.filter(method => superCaptures[method.name]);
   methods = methods.filter(method => !superCaptures[method.name]);
 
+  console.log('*** methods:', methods);
+  console.log('*** extendMethods:', extendMethods);
+
   if (Object.keys(handlers).length) {
     moduleBody.properties.push({
       type: 'Property',
@@ -422,45 +468,7 @@ function processModule(moduleName) {
   outputMethods('extendMethods', extendMethods);
   outputHelpers(helpers);
 
-  const required = {};
-
-  parsed.body = parsed.body.filter(expression => {
-    if (expression.type !== 'VariableDeclaration') {
-      return true;
-    }
-    const declaration = expression && expression.declarations && expression.declarations[0];
-    if (!declaration) {
-      return true;
-    }
-    if (declaration.type !== 'VariableDeclarator') {
-      return true;
-    }
-    if (get(declaration, 'init.type') !== 'CallExpression') {
-      return true;
-    }
-    if (get(declaration, 'init.callee.name') !== 'require') {
-      return true;
-    }
-    let varName;
-    if (get(declaration, 'id.type') === 'ObjectPattern') {
-      // const { foo, bar } = require('baz')
-      varName = get(declaration, 'id.properties').map(property => get(property, 'key.name')).join(':');
-    } else {
-      // const bar = require('baz')
-      varName = get(declaration, 'id.name');
-    }
-    const args = get(declaration, 'init.arguments');
-    const arg = args && (args.length === 1) && args[0];
-    if (!arg) {
-      return true;
-    }
-    if (required[varName]) {
-      // Duplicate stomped
-      return false;
-    }
-    required[varName] = true;
-    return true;
-  });
+  discoverStaticRequires({ filterDuplicates: true });
 
   // if we're going to crash, do it before we start overwriting or
   // removing any files
@@ -494,6 +502,9 @@ function processModule(moduleName) {
   function parseConstruct(parsed, body) {
     body.forEach(statement => {
       if (statement.type === 'ExpressionStatement') {
+        const inlineRequirePath = (get(statement, 'expression.callee.callee.name') === 'require') && get(statement, 'expression.callee.arguments.0.value');
+        const staticRequirePath = staticRequirePaths[get(statement, 'expression.callee.name')];
+        console.log(`*** ${inlineRequirePath} ${staticRequirePath}`);
         if (statement.expression.type === 'AssignmentExpression') {
           const methodName = get(statement, 'expression.left.property.name');
           const fn = get(statement, 'expression.right');
@@ -505,15 +516,20 @@ function processModule(moduleName) {
             });
             return;
           }
-        } else if ((statement.expression.type === 'CallExpression') && (get(statement, 'expression.callee.callee.name') === 'require')) {
+        } else if ((statement.expression.type === 'CallExpression') && (inlineRequirePath || staticRequirePath)) {
           const args = get(statement, 'expression.arguments');
           if ((args.length === 2) && (args[0].name === 'self') &&
             (args[1].name === 'options')) {
-            const requirePath = get(statement, 'expression.callee.arguments.0.value');
+            const requirePath = inlineRequirePath || staticRequirePath;
+            console.log('>>> ', requirePath);
             // recurse into path
             let fsPath = path.resolve(path.dirname(moduleFilename), requirePath);
             if (!fsPath.match(/\.js$/)) {
-              fsPath += '.js';
+              if (!fs.existsSync(`${fsPath}.js`)) {
+                fsPath += '/index.js';
+              } else {
+                fsPath += '.js';
+              }
             }
             importedPaths.push(fsPath);
             const code = require('fs').readFileSync(fsPath, 'utf8');
@@ -962,6 +978,51 @@ function processModule(moduleName) {
     };
   }
 
+  function discoverStaticRequires({ filterDuplicates }) {
+    const required = {};
+    parsed.body = parsed.body.filter(expression => {
+      if (expression.type !== 'VariableDeclaration') {
+        return true;
+      }
+      const declaration = expression && expression.declarations && expression.declarations[0];
+      if (!declaration) {
+        return true;
+      }
+      if (declaration.type !== 'VariableDeclarator') {
+        return true;
+      }
+      if (get(declaration, 'init.type') !== 'CallExpression') {
+        return true;
+      }
+      if (get(declaration, 'init.callee.name') !== 'require') {
+        return true;
+      }
+      let varName;
+      if (get(declaration, 'id.type') === 'ObjectPattern') {
+        // const { foo, bar } = require('baz')
+        varName = get(declaration, 'id.properties').map(property => get(property, 'key.name')).join(':');
+      } else {
+        // const bar = require('baz')
+        varName = get(declaration, 'id.name');
+      }
+      const args = get(declaration, 'init.arguments');
+      const arg = args && (args.length === 1) && args[0];
+      if (!arg) {
+        return true;
+      }
+      if (required[varName]) {
+        if (filterDuplicates) {
+          // Duplicate stomped
+          return false;
+        } else {
+          return true;
+        }
+      }
+      required[varName] = arg.value;
+      return true;
+    });
+    return required;  
+  }
 }
 
 function filterModuleName(name) {
@@ -1078,4 +1139,16 @@ function unsupported() {
   const e = new Error('Unsupported');
   e.name = 'unsupported';
   return e;
+}
+
+function lint(filename, line, message) {
+  if ((typeof line) !== 'number') {
+    message = line;
+    number = null;
+  }
+  console.warn(`👆 ${filename} ${line} ${message}`);
+}
+
+function inspect(o) {
+  return require('util').inspect(o, { depth: 10 });
 }
