@@ -1,25 +1,26 @@
 {
   "name": "@apostrophecms/code-upgrader",
-  "version": "1.0.1",
+  "version": "1.0.0-alpha",
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "npx eslint ."
+    "test": "eslint . && mocha"
   },
   "author": "Apostrophe Technologies, Inc.",
   "license": "MIT",
   "dependencies": {
-    "acorn": "^7.1.0",
+    "acorn": "^8.0.0",
     "boring": "^1.0.0",
     "common-tags": "^1.8.1",
-    "escodegen": "^1.11.1"
+    "escodegen": "^2.0.0"
   },
   "devDependencies": {
     "eslint": "^8.0.0",
     "eslint-config-apostrophe": "^3.4.1",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^5.1.1"
+    "eslint-plugin-promise": "^5.1.1",
+    "mocha": "^9.1.3"
   },
   "bin": {
     "apos-code-upgrader": "./bin/apos-code-upgrader"

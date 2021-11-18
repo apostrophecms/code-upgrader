@@ -83,7 +83,8 @@ function processModule(moduleName) {
     ranges: true,
     locations: true,
     onComment: comments,
-    onToken: tokens
+    onToken: tokens,
+    ecmaVersion: 2020
   });
   parsed = escodegen.attachComments(parsed, comments, tokens);
   const prologue = [];
@@ -91,7 +92,9 @@ function processModule(moduleName) {
   const earlyInits = [];
   let lateInits = [];
   let adjusts = [];
+  let helpersNeeded = false;
   const options = [];
+  const newModuleBodyProperties = [];
   const routes = {};
   const superCaptures = {};
   const moveMethodsToHandlers = [];
@@ -140,6 +143,23 @@ function processModule(moduleName) {
         } else if (specials[name]) {
           const special = (specials[name] === true) ? name : specials[name];
           specialsFound[special] = get(property, 'value');
+        } else if (name === 'addFields') {
+          handleFieldsOption('add', get(property, 'value'));
+        } else if (name === 'arrangeFields') {
+          handleFieldsOption('group', get(property, 'value'));
+        } else if (name === 'removeFields') {
+          const value = get(property, 'value');
+          // Not like the others
+          const fields = ensureFields();
+          const remove = {
+            type: 'Property',
+            key: {
+              type: 'Identifier',
+              name: 'remove'
+            },
+            value
+          };
+          fields.value.properties.push(remove);
         } else {
           options[name] = get(property, 'value');
         }
@@ -325,6 +345,7 @@ function processModule(moduleName) {
       },
       method: true
     });
+
   });
 
   for (const item of moveMethodsToHandlers) {
@@ -394,6 +415,8 @@ function processModule(moduleName) {
       method: true
     });
   }
+
+  moduleBody.properties = [ ...moduleBody.properties, ...newModuleBodyProperties ];
 
   outputMethods('methods', methods);
   outputMethods('extendMethods', extendMethods);
@@ -810,6 +833,135 @@ function processModule(moduleName) {
       });
     }
   }
+
+  function ensureFields() {
+    let fields = newModuleBodyProperties.find(property =>
+      (get(property, 'key.name') === 'fields') &&
+      (get(property, 'key.type') === 'Identifier')
+    );
+    if (!fields) {
+      fields = {
+        type: 'Property',
+        key: {
+          type: 'Identifier',
+          name: 'fields'
+        },
+        value: {
+          type: 'ObjectExpression',
+          properties: []
+        }
+      };
+      newModuleBodyProperties.push(fields);
+    }
+    return fields;
+  }
+
+  function handleFieldsOption(subpropertyName, value) {
+    const fields = ensureFields();
+    const subproperty = {
+      type: 'Property',
+      key: {
+        type: 'Identifier',
+        name: subpropertyName
+      },
+      value: {
+        type: 'ObjectExpression',
+        properties: []
+      }
+    };
+    try {
+      if (value.type === 'ArrayExpression') {
+        for (const element of value.elements) {
+          if (element.type === 'ObjectExpression') {
+            const name = element.properties.find(property =>
+              (get(property, 'key.name') === 'name') &&
+              (get(property, 'key.type') === 'Identifier') &&
+              (!property.computed));
+            const literalOrIdentifier = nameToLiteralOrIdentifier(name);
+            const fieldProperty = {
+              type: 'Property',
+              computed: !literalOrIdentifier,
+              key: literalOrIdentifier || name.value,
+              value: {
+                type: 'ObjectExpression',
+                properties: element.properties.filter(property => property !== name)
+              }
+            };
+            subproperty.value.properties.push(fieldProperty);
+          } else if (element.type === 'SpreadElement') {
+            subproperty.value.properties.push({
+              type: 'SpreadElement',
+              argument: invokeHelper('arrayOptionToObject', element.argument)
+            });
+          } else {
+            throw unsupported();
+          }
+        }
+      } else {
+        throw unsupported();
+      }
+    } catch (e) {
+      if (e.name !== 'unsupported') {
+        throw e;
+      }
+      // If there is anything we don't understand at compile time,
+      // insert a call to a helper function that can
+      // make sense of it at runtime
+      subproperty.value = invokeHelper('arrayOptionToObject', value);
+    }
+    fields.value.properties.push(subproperty);
+  }
+
+  // Given a function name and zero or more escodegen expressions as arguments,
+  // returns an escodegen expression that invokes the named function
+  // with the given arguments
+  function invokeHelper(name, ...args) {
+    if (!helpersNeeded) {
+      helpersNeeded = true;
+      prologue.push({
+        type: 'VariableDeclaration',
+        kind: 'const',
+        declarations: [
+          {
+            type: 'VariableDeclarator',
+            id: {
+              type: 'Identifier',
+              name: 'aposCodeMigrationHelpers'
+            },
+            init: {
+              type: 'CallExpression',
+              callee: {
+                type: 'Identifier',
+                name: 'require'
+              },
+              arguments: [
+                {
+                  type: 'Literal',
+                  value: '../../lib/apostrophe-code-migration-helpers.js'
+                }
+              ]
+            }
+          }
+        ]
+      });
+    }
+    return {
+      type: 'CallExpression',
+      callee: {
+        type: 'MemberExpression',
+        object: {
+          type: 'Identifier',
+          name: 'aposCodeMigrationHelpers'
+        },
+        property: {
+          type: 'Identifier',
+          name: 'arrayOptionToObject'
+        }
+      },
+      arguments: args
+    };
+  }
+
 }
 
 function filterModuleName(name) {
@@ -898,4 +1050,32 @@ function isMoogBundle() {
 function fail(s) {
   console.error(s);
   process.exit(1);
+}
+
+function nameToLiteralOrIdentifier(name) {
+  if (name.value.computed) {
+    return false;
+  }
+  if (name.value.type === 'Identifier') {
+    return name.value;
+  }
+  if (name.value.type === 'Literal') {
+    // Where possible convert to identifier
+    const text = name.value.value;
+    if (text.match(/^[a-zA-Z]\w*$/)) {
+      return {
+        type: 'Identifier',
+        name: text
+      };
+    } else {
+      return name.value;
+    }
+  }
+  return false;
+}
+
+function unsupported() {
+  const e = new Error('Unsupported');
+  e.name = 'unsupported';
+  return e;
 }
