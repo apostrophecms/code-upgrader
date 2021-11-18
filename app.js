@@ -1,10 +1,5 @@
-const fs = require('fs');
-const path = require('path');
-const acorn = require('acorn');
-const escodegen = require('escodegen');
 const argv = require('boring')();
 const cp = require('child_process');
-const { stripIndent } = require('common-tags');
 const linter = require('./lib/linter');
 const converter = require('./lib/converter');
 
