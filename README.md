@@ -1,6 +1,18 @@
 [![CircleCI](https://circleci.com/gh/apostrophecms/code-upgrader/tree/master.svg?style=svg)](https://circleci.com/gh/apostrophecms/code-upgrader/tree/master)
+[![Chat on Discord](https://img.shields.io/discord/517772094482677790.svg)](https://chat.apostrophecms.org)
 
-NOT ready for use.
+<p align="center">
+  <a href="https://github.com/apostrophecms/apostrophe">
+    <!-- TODO:  -->
+    <img src="https://raw.githubusercontent.com/apostrophecms/apostrophe/main/logo.svg" alt="ApostropheCMS logo" width="80" height="80">
+  </a>
+
+  <h1 align="center">Apostrophe Code Upgrader: A2 ➡ A3</h1>
+</p>
+
+The Code Upgrader handles the majority of required modifications for an Apostrophe 2 codebase to run Apostrophe 3. It will also identify many specific lines and sections of code that a developer will need to convert manually.
+
+**Status:** In development (not for production use)
 
 Current test procedure:
 
