@@ -25,6 +25,7 @@ The code upgrader will convert Apostrophe 2 codebases for installable modules *a
 - Converting utility methods such as `addHelper()`, `apiRoute()`, and others to A3 module customization functions.
 - Moving code in `beforeConstruct`, `construct`, and `afterConstruct` that can't otherwise be converted into appropriate A3 module functions.
 - Inlining the content of any files used in module configuration with the `require('./lib/something')(self, options)` pattern. This allows the tool to run the rest of its actions on that code as well. Those complete "required" files are removed.
+- And more...
 
 There is also a linter operation available to understand what will be changed as well as what could not be changed (following the upgrade process).
 
@@ -34,7 +35,7 @@ Not every module and project is a good candidate for automated code upgrading as
 
 The primary thing to understand is that this tool is not likely to make the project codebase 100% ready to use with Apostrophe 3. Its mission is to significantly *reduce* the manual work required to do so.
 
-A few things that you can expect to need to do manually include:
+*Some* of the things that you can expect to need to do manually include:
 - jQuery-powered widget players (not "lean mode") due to their structure and lack of jQuery in A3 by default.
 - "Anonymous" area configuration in template files. These configurations must be moved into the proper module's `index.js` schema definition.
 - Some schema field and widget options due to the wide varation.
