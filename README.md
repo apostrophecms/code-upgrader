@@ -86,3 +86,7 @@ Use the command `apos-code-upgrader lint` to run a linter scan of the A2 code. T
 If you want to undo all the changes made by the tool for any reason, run `apos-code-upgrader reset` in the project root. You must do this *before committing the changes*. This does a simple hard reset of your local branch with git and will let you start again after reviewing the changes if you desire.
 
 As a last resort you can always switch back to the main git branch and create a new upgrade branch to start over. You did switch off the main branch at the start, didn't you? 🤓
+
+## Pre-alpha options
+
+The upgrade command has experimental support for inlining certain `require`-d files in order to discover methods, handlers, etc. inside those files as well. This generally will not work well unless required files confine their interesting logic to an exported function, which `index.js` invokes with `(self, options)`. You can try out this experimental feature by adding the `--upgrade-required-files` flag.
