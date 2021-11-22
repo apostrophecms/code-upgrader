@@ -6,9 +6,9 @@ const upgrader = require('./lib/upgrader');
 if (argv._[0] === 'reset') {
   cp.execSync('git reset --hard && git clean -df');
 } else if (argv._[0] === 'lint') {
-  linter();
+  linter({ argv });
 } else if (argv._[0] === 'upgrade') {
-  upgrader();
+  upgrader({ argv });
 } else {
   // help goes here
   console.log('halp');
