@@ -2,6 +2,7 @@ const argv = require('boring')();
 const cp = require('child_process');
 const linter = require('./lib/linter');
 const upgrader = require('./lib/upgrader');
+const { stripIndent } = require('common-tags');
 
 if (argv._[0] === 'reset') {
   cp.execSync('git reset --hard && git clean -df');
@@ -10,6 +11,13 @@ if (argv._[0] === 'reset') {
 } else if (argv._[0] === 'upgrade') {
   upgrader({ argv });
 } else {
-  // help goes here
-  console.log('halp');
+  console.log(stripIndent`
+    Usage:
+
+    # List changes you need to make (always recommended)
+    apos-code-upgrader lint
+
+    # Make some changes automatically (does not do everything)
+    apos-code-upgrader upgrade
+  `);
 }

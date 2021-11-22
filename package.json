@@ -12,7 +12,8 @@
     "acorn": "^8.0.0",
     "boring": "^1.0.0",
     "common-tags": "^1.8.1",
-    "escodegen": "^2.0.0"
+    "escodegen": "^2.0.0",
+    "string.prototype.replaceall": "^1.0.6"
   },
   "devDependencies": {
     "eslint": "^8.0.0",
