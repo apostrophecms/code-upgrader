@@ -24,8 +24,6 @@ This module's features break down into two basic categories: "linting" for compa
 
 This module's linting feature scans your project for modifications that likely need to be made to be compatible with A3. The lint command will work well with basically all projects and detects many issues. Here are just a few examples of what the linter can detect:
 
-modifications that likely need to be made to be compatible with A3. The lint command will work well with basically all projects and detects many issues. Here are just a few examples of what the linter can detect:
-
 - The need to rename `lib/modules` to `modules`.
 - The need to change `{{ apos.area(...) }}` to `{% area ... %}`.
 - The need to move code from `construct()` to `methods()`, `handlers()`, etc.
