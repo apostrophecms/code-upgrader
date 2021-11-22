@@ -39,7 +39,7 @@ There are also many needed changes that the upgrade command cannot handle on its
 Where possible, the code upgrader will convert Apostrophe 2 codebases for installable modules *and* full A2 websites so they are *mostly ready* to run Apostrophe 3. This includes:
 - Moving modules from `lib/modules` to the `modules` directory.
 - Renaming most project-level Apostrophe core module customization directories to the A3 equivalents.
-- Converting field schemas, columns, and similarly structured features to the A3 "cascade" configuration structure, if the existing module follows the structure of our A2 example projects closely enough.
+- Converting field schemas, columns, and similarly structured features to the A3 "cascade" configuration structure, if the existing module follows the structure of the official A2 example projects closely enough.
 - Converting utility methods such as `addHelper()`, `apiRoute()`, and others to A3 module customization functions, again if the project closely follows the structure of the official A2 sample projects.
 - Moving code in `beforeConstruct`, `construct`, and `afterConstruct` that can't otherwise be converted into appropriate A3 module functions.
 - And more...
