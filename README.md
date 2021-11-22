@@ -32,15 +32,15 @@ Since the linter is very tolerant it is a good candidate for use with nearly all
 
 #### Automated upgrading
 
-This module can also carry out some upgrades automatically. While this is a great feature, keep in mind that not every module and project is a good candidate for automated code upgrading as there are an infinite number of ways projects can be structured. The upgrade featureworks best on projects that adhere very closely to the coding style of the official A2 sample projects and documentation.
+This module can also carry out some upgrades automatically. While this is a great feature, keep in mind that not every module and project is a good candidate for automated code upgrading as there are an infinite number of ways projects can be structured. The upgrade feature works best on projects that adhere very closely to the coding style of the official A2 sample projects and documentation.
 
-There are also many needed changes that the upgrade command cannot handle on its own. So a successful upgrade will always involve reviewing the output of the linting feature,  as well as the Apostrophe documentation.
+There are also many needed changes that the upgrade command cannot handle on its own. So a successful upgrade will always involve reviewing the output of the linting feature, as well as the Apostrophe documentation.
 
 Where possible, the code upgrader will convert Apostrophe 2 codebases for installable modules *and* full A2 websites so they are *mostly ready* to run Apostrophe 3. This includes:
 - Moving modules from `lib/modules` to the `modules` directory.
 - Renaming most project-level Apostrophe core module customization directories to the A3 equivalents.
 - Converting field schemas, columns, and similarly structured features to the A3 "cascade" configuration structure, if the existing module follows the structure of our A2 example projects closely enough.
-- Converting utility methods such as `addHelper()`, `apiRoute()`, and others to A3 module customization functions, again if the project closely follows the structure of our typical projects.
+- Converting utility methods such as `addHelper()`, `apiRoute()`, and others to A3 module customization functions, again if the project closely follows the structure of the official A2 sample projects.
 - Moving code in `beforeConstruct`, `construct`, and `afterConstruct` that can't otherwise be converted into appropriate A3 module functions.
 - And more...
 
@@ -79,7 +79,7 @@ While the linting features leave your project as-is, the upgrade features will c
 
 Use the command `apos-code-upgrader lint` to run a linter scan of the A2 code. This will print to the console every required change it can find. This will *not* actually change any code. It is an especially useful step after you run the upgrade process, but it can be useful before to understand what changes to expect.
 
-## Automatically upgarding the A2 codebase
+## Automatically upgrading the A2 codebase
 
 1. Type `apos-code-upgrader upgrade` in the project root to have the tool actually convert code to A3's expected structure and syntax where possible. There may be immediate messages printed to the console suggesting next steps.
 2. Run the linter command, `apos-code-upgrader lint`, to see any remaining changes that are detected and require manual conversion.
