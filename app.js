@@ -10,14 +10,22 @@ if (argv._[0] === 'reset') {
   linter({ argv });
 } else if (argv._[0] === 'upgrade') {
   upgrader({ argv });
+} else if (argv._[0] === 'help' || argv.help) {
+  console.log(stripIndent`
+    Commands:
+
+      lint                  List changes you need to make (always recommended)
+        Example: apos-code-upgrader lint
+      upgrade [options]     Make some changes automatically
+        Example: apos-code-upgrader upgrade
+        Options:
+        - --upgrade-required-files: Experimental support for inlining module
+          code included with \`require\` statements. Most successful when the
+          inlined file is limited to an exported function that the module
+          invokes with \`(self, options)\`
+  `);
 } else {
   console.log(stripIndent`
-    Usage:
-
-    # List changes you need to make (always recommended)
-    apos-code-upgrader lint
-
-    # Make some changes automatically (does not do everything)
-    apos-code-upgrader upgrade
-  `);
+    Run \`apos-code-upgrader help\` or \`apos-code-upgrader --help\` for commands.
+`);
 }
