@@ -12,7 +12,7 @@ if (argv._[0] === 'reset') {
 } else if (argv._[0] === 'upgrade') {
   confirm()
     .then(response => {
-      if (response.proceed) {
+      if (response && response.proceed) {
         upgrader({ argv });
       }
     })
