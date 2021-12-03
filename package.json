@@ -26,5 +26,8 @@
   },
   "bin": {
     "apos-code-upgrader": "./bin/apos-code-upgrader"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
