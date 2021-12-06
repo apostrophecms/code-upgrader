@@ -11,6 +11,7 @@
 - Lint for `filterOptionsForDataAttribute`.
 - Lint for methods that should move to the "methods" section.
 - Lint for tasks that should move to the "tasks" section.
+- Lint for `self.route`, `self.apiRoute`, `self.htmlRoute`, and `self.renderRoute`.
 
 ## 1.0.0-alpha.1 (2021-12-03)
 
