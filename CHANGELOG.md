@@ -1,7 +1,8 @@
 # Changelog
 
-## UNRELEASED
+## Unreleased
 
+- Adds a prompt before the upgrade script runs to confirm the user wants to proceed.
 - Adds helpful message about using "git diff HEAD" after running the upgrade command.
 - Display lint messages in source code order, even if they are for a mix of issues.
 - Lint for array field schema properties that need conversion.
