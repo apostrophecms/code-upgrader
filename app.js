@@ -36,6 +36,8 @@ async function upgrade({ argv }) {
 
   if (proceed) {
     upgrader({ argv });
+  } else {
+    process.exit(1);
   }
 }
 
