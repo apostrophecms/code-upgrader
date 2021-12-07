@@ -10,15 +10,7 @@ if (argv._[0] === 'reset') {
 } else if (argv._[0] === 'lint') {
   linter({ argv });
 } else if (argv._[0] === 'upgrade') {
-  confirm()
-    .then(response => {
-      if (response && response.proceed) {
-        upgrader({ argv });
-      }
-    })
-    .catch(err => {
-      console.error(err);
-    });
+  upgrade({ argv });
 } else if (argv._[0] === 'help' || argv.help) {
   console.log(stripIndent`
     Commands:
@@ -37,6 +29,14 @@ if (argv._[0] === 'reset') {
   console.log(stripIndent`
     Run \`apos-code-upgrader help\` or \`apos-code-upgrader --help\` for commands.
 `);
+}
+
+async function upgrade({ argv }) {
+  const { proceed } = await confirm();
+
+  if (proceed) {
+    upgrader({ argv });
+  }
 }
 
 async function confirm() {
