@@ -2,7 +2,7 @@
 
 ## UNRELEASED
 
-- Linter now flags the presence of webpack and explains options.
+- Linter now looks for `webpack.config.js` and explains possible alternatives and options.
 
 ## 1.0.0-alpha.2 (2021-12-08)
 
