@@ -1,6 +1,6 @@
 {
   "name": "@apostrophecms/code-upgrader",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-beta",
   "description": "",
   "main": "app.js",
   "scripts": {
