@@ -1,6 +1,6 @@
 # Changelog
 
-## UNRELEASED
+## 1.0.0-beta (2022-01-21)
 
 - Linter now looks for `webpack.config.js` and explains possible alternatives and options.
 
