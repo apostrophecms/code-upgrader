@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0-beta.2 (2023-02-01)
+## 1.0.0 (2023-03-16)
 
 - `upgrade` command now also supports A2 projects powered by `apostrophe-multsite`.
 
