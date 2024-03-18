@@ -1,5 +1,11 @@
 # Changelog
 
+## UNRELEASED
+
+### Changes
+
+- Updates the documentation. No code changes.
+
 ## 1.0.0 (2023-03-16)
 
 - Declared stable. No code changes.
