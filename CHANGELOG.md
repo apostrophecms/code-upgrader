@@ -1,10 +1,10 @@
 # Changelog
 
-## UNRELEASED
+## 1.1.0 (2026-03-02)
 
 ### Changes
 
-- Updates the documentation. No code changes.
+- Includes Agent Skill (aka Claude Skill). The Agent Skill is now the strongly recommended method of code migration.
 
 ## 1.0.0 (2023-03-16)
 

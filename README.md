@@ -10,15 +10,23 @@
   <h1 align="center">Apostrophe Code Upgrader: ⬆︎A2</h1>
 </p>
 
-The Code Upgrader handles a portion of the required modifications for an Apostrophe 2 (A2) codebase to run newer Apostrophe versions. It will also identify many specific lines and sections of code that a developer will need to convert manually.
+The Code Upgrader assists in migrating Apostrophe 2.x projects to Apostrophe 4.x.
 
-**Status:** In development (not for production use)
+The Code Upgrader provides three important tools:
 
-## Purpose
+## The AI Agent Skill (strongly recommended)
+
+The [AI Agent Skill](https://github.com/apostrophecms/code-upgrader/blob/main/skills/migrate-a2-to-a4/) (also known as a "Claude skill") allows Claude Code and similar tools to assist developers by swiftly completing the majority of the necessary work for a migration.
+
+**As always, AI can make serious mistakes.** It is your responsibility to review the code and make yourself familiar with the migration process, just as much as you would if you were doing it manually.
+
+## Alternative tools to assist manual upgrades
+
+*We recommend using the AI skill instead to greatly accelerate the work.*
 
 ### What it does
 
-This module's features break down into two basic categories: "linting" for compatibility issues you can fix yourself, and "upgrading" code automatically. Since not everything can be upgraded automatically, the linting feature is important for everyone.
+This module's manual features break down into two basic categories: "linting" for compatibility issues you can fix yourself, and "upgrading" code in a semi-automated way. Since quite a bit cannot be upgraded automatically (unless using AI), the linting feature is the most useful.
 
 #### Linting for compatibility issues
 
@@ -30,11 +38,13 @@ This module's linting feature scans your project for modifications that likely n
 
 Since the linter is very tolerant it is a good candidate for use with nearly all A2 projects that are migrating to a newer version.
 
-#### Automated upgrading
+#### Legacy automated upgrade command
 
-This module can also carry out some upgrades automatically. While this is a great feature, keep in mind that not every module and project is a good candidate for automated code upgrading as there are an infinite number of ways projects can be structured. The upgrade feature works best on projects that adhere very closely to the coding style of the official A2 sample projects and documentation.
+This module also offers a legacy automated upgrade feaqture that does not use I. While it can be useful, keep in mind that not every module and project is a good candidate for automated code upgrading as there are an infinite number of ways projects can be structured. This is why AI typically works best.
 
-There are also many needed changes that the upgrade command cannot handle on its own. So a successful upgrade will always involve reviewing the output of the linting feature, as well as the Apostrophe documentation.
+The legacy upgrade feature works best on projects that adhere very closely to the coding style of the official A2 sample projects and documentation.
+
+There are also many needed changes that the legacy upgrade command cannot handle on its own. So a successful upgrade will always involve reviewing the output of the linting feature, as well as the Apostrophe documentation.
 
 Where possible, the code upgrader will convert Apostrophe 2 codebases for installable modules *and* full A2 websites so they are *mostly ready* to run a newer version of Apostrophe. This includes:
 - Moving modules from `lib/modules` to the `modules` directory.
@@ -44,7 +54,7 @@ Where possible, the code upgrader will convert Apostrophe 2 codebases for instal
 - Moving code in `beforeConstruct`, `construct`, and `afterConstruct` that can't otherwise be converted into appropriate newer version module functions.
 - And more...
 
-### What it doesn't do
+### What the legacy upgrade command doesn't do
 
 The primary thing to understand is that this tool is not likely to make the project codebase 100% ready to use with newer versions of Apostrophe all by itself. Its mission is to significantly *reduce* the manual work required to do so, and help you discover what you have to do next.
 
@@ -57,7 +67,17 @@ The primary thing to understand is that this tool is not likely to make the proj
 
 ## Installation
 
-To install the module:
+### For AI upgrades
+
+For use with Claude Code, copy the [`skills/migrate-a2-to-a4` folder of this repository](https://github.com/apostrophecms/code-upgrader/blob/main/skills/migrate-a2-to-a4/) to `.claude/skills/migrate-a2-to-a4` within your home directory, or your project. Then ask Claude Code to migrate the project to Apostrophe 4.x using the skill. **Active developer involvement and testing is still required, but you will save a tremendous amount of time** by following this approach.
+
+Agent skills are also supported by other AI coding tools. Install the skill according to your preferred agent's instructions. Then ask it to migrate the project to A4, and make sure the agent is actually using the skill (it will tell you when it elects to use a skill).
+
+See above re: how to install the Agent Skill for AI upgrades.
+
+### Legacy installation
+
+To install the module's manual migration features:
 
 ```
 npm install -g @apostrophecms/code-upgrader
@@ -65,7 +85,7 @@ npm install -g @apostrophecms/code-upgrader
 
 The `apos-code-upgrader` command is now available in your command line shell.
 
-## Project preparation
+## Additional guidance for the non-AI legacy commands
 
 While the linting features leave your project as-is, the upgrade features will change most files in the codebase. It is important to prepare for this by making sure the project has version control active and ready to support this process. First and foremost, **the codebase must have git version control active**. This tool will stop if it cannot find evidence of git.
 
